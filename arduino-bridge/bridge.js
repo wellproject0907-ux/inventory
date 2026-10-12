@@ -3,7 +3,7 @@ const { ReadlineParser } = require('@serialport/parser-readline');
 const axios = require('axios');
 
 const BAUD_RATE = 9600;
-const API_URL = process.env.INVENTORY_API_URL || 'http://localhost:3000/api/arduino/scan';
+const API_URL = process.env.INVENTORY_API_URL || 'https://inventory-two-blue.vercel.app/api/arduino/scan';
 
 console.log('==================================================');
 console.log('   INVENTORY APP - ARDUINO RC522 USB BRIDGE       ');
