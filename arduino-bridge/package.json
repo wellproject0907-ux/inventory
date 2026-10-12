@@ -1,0 +1,14 @@
+{
+  "name": "inventory-arduino-bridge",
+  "version": "1.0.0",
+  "description": "Bridge script to connect Arduino RC522 RFID reader via USB to Inventory app",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0"
+  }
+}

@@ -1,0 +1,129 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.card {
+  background-color: #ffffff;
+  border: 1px solid rgba(231, 229, 228, 0.8);
+  border-radius: 0.875rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.cardActive {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  background-color: #f8fafc;
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.375rem;
+}
+
+.cardTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #78716c;
+}
+
+.detailsBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  background-color: #f5f5f4;
+  border: 1px solid #e7e5e4;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 10px;
+  font-weight: 600;
+  color: #57534e;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.detailsBtn:hover {
+  background-color: #e7e5e4;
+}
+
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.badgeGreen {
+  background-color: #ecfdf5;
+  color: #059669;
+}
+
+.badgeRed {
+  background-color: #fff1f2;
+  color: #e11d48;
+}
+
+.cardValue {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1c1917;
+  letter-spacing: -0.025em;
+}
+
+.dropdownPanel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.375rem;
+  background-color: #ffffff;
+  border: 1px solid #e7e5e4;
+  border-radius: 0.875rem;
+  padding: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  z-index: 30;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.panelTitle {
+  font-size: 10px;
+  font-weight: 700;
+  color: #78716c;
+  letter-spacing: 0.05em;
+}
+
+.closeBtn {
+  color: #a8a29e;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.closeBtn:hover {
+  color: #1c1917;
+}

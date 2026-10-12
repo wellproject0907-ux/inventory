@@ -1,0 +1,6 @@
+{
+  "appId": "com.inventory.app",
+  "appName": "Inventory NFC",
+  "webDir": ".next",
+  "bundledWebRuntime": false
+}

@@ -1,0 +1,163 @@
+.container {
+  background-color: #ffffff;
+  border: 1px solid rgba(231, 229, 228, 0.8);
+  border-radius: 0.875rem;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  flex: 1;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1c1917;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: #78716c;
+  margin-top: 0.125rem;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.legendInboundBox {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background-color: #6366f1;
+  display: inline-block;
+}
+
+.legendOutboundBox {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background-color: #f43f5e;
+  display: inline-block;
+}
+
+.legendPreviousBox {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background-color: #ffedd5;
+  border: 1px solid #fed7aa;
+  display: inline-block;
+}
+
+.chartArea {
+  position: relative;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-bottom: 1px solid #f5f5f4;
+  padding-bottom: 0.375rem;
+}
+
+.tooltipBox {
+  position: absolute;
+  top: 5px;
+  left: 52%;
+  background-color: #ffffff;
+  border: 1px solid #e7e5e4;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.barsContainer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 160px;
+  padding-top: 0.75rem;
+}
+
+.barGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+}
+
+.barStackParent {
+  position: relative;
+  width: 24px;
+  height: 130px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.barYearEarlier {
+  position: absolute;
+  bottom: 0;
+  width: 24px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  z-index: 1;
+  transition: all 0.2s ease;
+}
+
+.barYearEarlierActive {
+  background-color: #ffedd5;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 0 6px rgba(254, 215, 170, 0.5);
+}
+
+.barsWrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 130px;
+  justify-content: center;
+  z-index: 2;
+}
+
+.barInbound {
+  width: 7px;
+  background-color: #818cf8;
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+}
+
+.barOutbound {
+  width: 7px;
+  background-color: #fda4af;
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+}
+
+.barActive {
+  filter: brightness(0.9);
+}
+
+.monthLabel {
+  font-size: 11px;
+  color: #a8a29e;
+  margin-top: 0.375rem;
+}
+
+.monthLabelActive {
+  font-weight: 700;
+  color: #1c1917;
+}
