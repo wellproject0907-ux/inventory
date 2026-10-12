@@ -2,15 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/services/firebase/config';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { ArrowDownLeft, Loader2, Check, FileText, Truck, Tag, X } from 'lucide-react';
 
 export default function RfidOutPopup() {
   const [pendingOutItem, setPendingOutItem] = useState(null);
   const [noSpk, setNoSpk] = useState('');
+  const [activeOperator, setActiveOperator] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Listen to active operator
+    const unsubSettings = onSnapshot(doc(db, 'system', 'settings'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.active_operator_name) {
+          setActiveOperator({ name: data.active_operator_name, role: data.active_operator_role });
+        } else {
+          setActiveOperator(null);
+        }
+      }
+    });
+
     // Listen to items where needs_spk is true (Scan 2 - OUT)
     const q = query(collection(db, 'barang'), where('needs_spk', '==', true));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -24,7 +37,10 @@ export default function RfidOutPopup() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubSettings();
+    };
   }, []);
 
   const handleCancel = async () => {
@@ -44,6 +60,10 @@ export default function RfidOutPopup() {
 
   const handleConfirmOut = async (e) => {
     e.preventDefault();
+    if (!activeOperator) {
+      alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu pada alat Arduino.');
+      return;
+    }
     if (!pendingOutItem || !noSpk) {
       alert('Nomor SPK wajib diisi!');
       return;
@@ -57,7 +77,8 @@ export default function RfidOutPopup() {
         body: JSON.stringify({
           uid: pendingOutItem.nfc_uid,
           action: 'CONFIRM_OUT',
-          no_spk: noSpk
+          no_spk: noSpk,
+          warehouse_user: activeOperator.name
         })
       });
 
@@ -76,6 +97,31 @@ export default function RfidOutPopup() {
   };
 
   if (!pendingOutItem) return null;
+
+  if (!activeOperator && pendingOutItem) {
+    return (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-100 space-y-4 text-center">
+          <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto text-xl font-bold animate-pulse shadow-sm">
+            ⚠️
+          </div>
+          <h3 className="text-lg font-bold text-stone-900">Otorisasi Operator Diperlukan</h3>
+          <p className="text-xs text-stone-600 leading-relaxed">
+            Belum ada operator yang terotorisasi. Silakan tempelkan **Kartu ID Operator** terlebih dahulu pada alat **Arduino RC522** untuk membuka akses konfirmasi Stock OUT.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+            >
+              Tutup / Batalkan Scan
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -98,6 +144,11 @@ export default function RfidOutPopup() {
           </button>
         </div>
 
+        {/* Operator Authorization Status Banner */}
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between">
+          <span>✅ Authorized Operator: <strong>{activeOperator.name}</strong> ({activeOperator.role || 'Staff Gudang'})</span>
+        </div>
+
         {/* Data Preview from Scan In */}
         <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-4 space-y-2 text-xs">
           <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Data Barang Saat Scan In:</p>
@@ -108,7 +159,7 @@ export default function RfidOutPopup() {
             </div>
             <div>
               <span className="text-stone-400 block text-[10px]">Nama Bahan:</span>
-              <strong className="text-stone-900">{pendingOutItem.nama_barang || '-'}</strong>
+              <strong className="font-stone-900 text-stone-900">{pendingOutItem.nama_barang || '-'}</strong>
             </div>
             <div>
               <span className="text-stone-400 block text-[10px]">Supplier:</span>
@@ -147,10 +198,11 @@ export default function RfidOutPopup() {
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="flex-2 flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
+              disabled={loading || !activeOperator}
+              className="flex-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <><Check size={16} /> Konfirmasi Stock OUT</>}
+              {loading && <Loader2 size={14} className="animate-spin" />}
+              Konfirmasi Stock OUT
             </button>
           </div>
         </form>

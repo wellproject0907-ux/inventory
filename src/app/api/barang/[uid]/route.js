@@ -22,8 +22,21 @@ export async function GET(req, { params }) {
 export async function DELETE(req, { params }) {
   try {
     const { uid } = await params;
+
+    // 1. Delete item from 'barang' collection (by document ID or UID)
     await deleteDoc(doc(db, 'barang', String(uid)));
-    return NextResponse.json({ success: true, message: 'Item deleted successfully' });
+
+    // 2. Also delete associated transaction history from 'riwayat_transaksi'
+    try {
+      const qTx = query(collection(db, 'riwayat_transaksi'), where('nfc_uid', '==', uid));
+      const txSnap = await getDocs(qTx);
+      const deleteTxPromises = txSnap.docs.map(d => deleteDoc(doc(db, 'riwayat_transaksi', d.id)));
+      await Promise.all(deleteTxPromises);
+    } catch (e) {
+      console.error('Error cleaning up transaction history:', e);
+    }
+
+    return NextResponse.json({ success: true, message: 'Item and associated transaction history deleted successfully' });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

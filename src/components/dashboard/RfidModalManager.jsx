@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/services/firebase/config';
 import { collection, query, where, onSnapshot, getDocs, orderBy, limit, deleteDoc, doc, setDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { Tag, Loader2, Check, Search, Truck, X, History, Clock, Sparkles, ArrowDownLeft, FileText, AlertCircle } from 'lucide-react';
+import { Tag, Loader2, Check, Search, Truck, X, History, Clock, Sparkles, ArrowDownLeft, FileText, AlertCircle, Users } from 'lucide-react';
 
 export default function RfidModalManager() {
-  const [activeModal, setActiveModal] = useState(null); // 'scan1', 'scan2', 'registered'
+  const [activeModal, setActiveModal] = useState(null); // 'operator_auth', 'scan1', 'scan2', 'registered'
   const [itemData, setItemData] = useState(null);
+  const [activeOperator, setActiveOperator] = useState(null);
+  const [pendingAuthUid, setPendingAuthUid] = useState(null);
 
   // Scan 1 states
   const [bahanList, setBahanList] = useState([]);
@@ -52,6 +54,26 @@ export default function RfidModalManager() {
     };
     fetchData();
 
+    // Listen to active operator and pending item auth from system settings
+    const unsubSettings = onSnapshot(doc(db, 'system', 'settings'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.active_operator_name) {
+          setActiveOperator({ name: data.active_operator_name, role: data.active_operator_role });
+        } else {
+          setActiveOperator(null);
+        }
+
+        if (data.pending_item_uid) {
+          setPendingAuthUid(data.pending_item_uid);
+          setActiveModal('operator_auth');
+        } else if (activeModal === 'operator_auth') {
+          setActiveModal(null);
+          setPendingAuthUid(null);
+        }
+      }
+    });
+
     // Listen to 'barang' collection in real-time with strict priority order
     const unsubscribe = onSnapshot(collection(db, 'barang'), (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -81,12 +103,17 @@ export default function RfidModalManager() {
         return;
       }
 
-      setActiveModal(null);
-      setItemData(null);
+      if (!pendingAuthUid) {
+        setActiveModal(null);
+        setItemData(null);
+      }
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribe();
+      unsubSettings();
+    };
+  }, [pendingAuthUid, activeModal]);
 
   const fetchHistory = async (uid) => {
     try {
@@ -172,6 +199,10 @@ export default function RfidModalManager() {
 
   const handleSaveScan1 = async (e) => {
     e.preventDefault();
+    if (!activeOperator) {
+      alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu pada alat Arduino.');
+      return;
+    }
     if (!itemData || (!selectedBahan && !namaBarang)) {
       alert('Pilih SKU atau Nama Bahan dari Master Data terlebih dahulu!');
       return;
@@ -192,7 +223,8 @@ export default function RfidModalManager() {
           nama_barang: namaBarang,
           kategori: supplier || 'General Supplier',
           qty: 1,
-          no_sj: noSj || 'SJ-DEFAULT'
+          no_sj: noSj || 'SJ-DEFAULT',
+          warehouse_user: activeOperator.name
         })
       });
 
@@ -230,6 +262,10 @@ export default function RfidModalManager() {
 
   const handleConfirmScan2 = async (e) => {
     e.preventDefault();
+    if (!activeOperator) {
+      alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu pada alat Arduino.');
+      return;
+    }
     if (!itemData || !noSpk) {
       alert('Nomor SPK wajib diisi!');
       return;
@@ -243,7 +279,8 @@ export default function RfidModalManager() {
         body: JSON.stringify({
           uid: itemData.nfc_uid,
           action: 'CONFIRM_OUT',
-          no_spk: noSpk
+          no_spk: noSpk,
+          warehouse_user: activeOperator.name
         })
       });
 
@@ -282,7 +319,41 @@ export default function RfidModalManager() {
     }
   };
 
-  if (!activeModal || !itemData) return null;
+  if (!activeModal) return null;
+
+  // MODAL OPERATOR AUTH REQUIRED (PENDING ITEM SCAN)
+  if (activeModal === 'operator_auth') {
+    return (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-100 space-y-4 text-center">
+          <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto text-xl font-bold animate-pulse shadow-sm">
+            ⚠️
+          </div>
+          <h3 className="text-lg font-bold text-stone-900">Operator Authorization Required</h3>
+          <p className="text-xs text-stone-600 leading-relaxed">
+            Item tag detected (<code className="font-mono text-blue-600">{pendingAuthUid}</code>). Please tap your **Operator ID Card** on the **Arduino RC522 reader** to authorize this transaction.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await updateDoc(doc(db, 'system', 'settings'), { pending_item_uid: null });
+                } catch (e) {}
+                setActiveModal(null);
+                setPendingAuthUid(null);
+              }}
+              className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+            >
+              Cancel / Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!itemData) return null;
 
   const filteredBahanSku = bahanList.filter(b => {
     const skuVal = b.sku || '';
@@ -316,10 +387,15 @@ export default function RfidModalManager() {
             </button>
           </div>
 
+          {/* Operator Authorization Status Banner */}
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between">
+            <span>✅ Authorized Operator: <strong>{activeOperator?.name}</strong> ({activeOperator?.role || 'Staff Gudang'})</span>
+          </div>
+
           <form onSubmit={handleSaveScan1} className="space-y-3.5 pt-2">
             {/* SKU Auto-Search */}
             <div className="relative">
-              <label className="block text-xs font-semibold text-stone-700 mb-1">Cari berdasarkan SKU (Auto-Search):</label>
+              <label className="block text-xs font-semibold text-stone-700 mb-1">SKU</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-stone-400"><Search size={16} /></span>
                 <input
@@ -327,7 +403,7 @@ export default function RfidModalManager() {
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setShowDropdownSku(true); }}
                   onFocus={() => setShowDropdownSku(true)}
-                  placeholder="Ketik SKU untuk mencari..."
+                  placeholder="Search SKU..."
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:border-blue-500 font-medium text-stone-900"
                 />
               </div>
@@ -343,9 +419,9 @@ export default function RfidModalManager() {
               )}
             </div>
 
-            {/* Nama Bahan Auto-Search (Tidak dikunci) */}
+            {/* Nama Bahan Auto-Search */}
             <div className="relative">
-              <label className="block text-xs font-semibold text-stone-700 mb-1">Cari berdasarkan Nama Bahan (Auto-Search):</label>
+              <label className="block text-xs font-semibold text-stone-700 mb-1">Material Name</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-stone-400"><Search size={16} /></span>
                 <input
@@ -357,7 +433,7 @@ export default function RfidModalManager() {
                     setShowDropdownNama(true);
                   }}
                   onFocus={() => setShowDropdownNama(true)}
-                  placeholder="Ketik Nama Bahan untuk mencari..."
+                  placeholder="Search material name..."
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:border-blue-500 font-medium text-stone-900"
                   required
                 />
@@ -376,41 +452,70 @@ export default function RfidModalManager() {
 
             {lastHistory && (
               <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 space-y-1.5 text-xs">
-                <div className="flex items-center gap-1.5 font-bold text-blue-800"><History size={14} /> Histori Barang Masuk Terakhir:</div>
+                <div className="flex items-center gap-1.5 font-bold text-blue-800"><History size={14} /> Last Incoming History:</div>
                 <div className="grid grid-cols-2 gap-2 text-stone-700 text-[11px]">
-                  <div><span className="text-stone-400 block text-[10px]">No. Surat Jalan (SJ):</span><strong className="font-mono text-blue-700">{lastHistory.no_sj || '-'}</strong></div>
+                  <div><span className="text-stone-400 block text-[10px]">Delivery Order (SJ):</span><strong className="font-mono text-blue-700">{lastHistory.no_sj || '-'}</strong></div>
                   <div><span className="text-stone-400 block text-[10px]">Supplier:</span><strong>{lastHistory.supplier || lastHistory.kategori || '-'}</strong></div>
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">Quantity (Qty):</label>
+              <label className="block text-xs font-semibold text-stone-700 mb-1">Quantity</label>
               <input type="number" value={qty} readOnly className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none font-bold text-stone-700 cursor-not-allowed" />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">Supplier (Otomatis dari Master Data):</label>
-              <input type="text" value={supplier} readOnly className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none font-bold text-stone-700 cursor-not-allowed" required />
+              <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center gap-1.5">
+                <Truck size={14} className="text-blue-600" /> Supplier
+              </label>
+              <input
+                type="text"
+                value={supplier}
+                readOnly
+                placeholder="Select material first..."
+                className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-600 font-medium cursor-not-allowed select-none"
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Truck size={14} className="text-blue-600" /> Nomor Surat Jalan (No. SJ):</span>
-                {suggestedSj && (
-                  <button type="button" onClick={() => setNoSj(suggestedSj)} className="text-[11px] text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md transition cursor-pointer">
-                    <Sparkles size={12} /> Saran: {suggestedSj}
-                  </button>
-                )}
+              <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center gap-1.5">
+                <FileText size={14} className="text-emerald-600" /> Delivery Order (SJ)
               </label>
-              <input type="text" list="sj-history" value={noSj} onChange={(e) => setNoSj(e.target.value)} placeholder="Nomor SJ otomatis terisi..." className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 font-mono text-stone-900 font-bold" required />
-              <datalist id="sj-history">{sjHistory.map((sj, idx) => <option key={idx} value={sj} />)}</datalist>
+              <input
+                type="text"
+                value={noSj}
+                onChange={(e) => setNoSj(e.target.value)}
+                placeholder="Enter or auto-fill SJ number..."
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 font-mono text-stone-900 font-bold"
+                required
+              />
+              {suggestedSj && (
+                <button
+                  type="button"
+                  onClick={() => setNoSj(suggestedSj)}
+                  className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 cursor-pointer bg-blue-50 px-2.5 py-1 rounded-lg w-fit"
+                >
+                  <Sparkles size={12} /> Suggested next SJ: <span className="font-mono font-bold">{suggestedSj}</span>
+                </button>
+              )}
             </div>
 
             <div className="pt-3 flex gap-2">
-              <button type="button" onClick={handleCancelScan1} className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer">Batal</button>
-              <button type="submit" disabled={loading} className="flex-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm">
-                {loading ? <Loader2 size={16} className="animate-spin" /> : <><Check size={16} /> Simpan Data RFID & No. SJ</>}
+              <button
+                type="button"
+                onClick={handleCancelScan1}
+                className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm flex items-center justify-center gap-2"
+              >
+                {loading && <Loader2 size={14} className="animate-spin" />}
+                Save Registration
               </button>
             </div>
           </form>
@@ -435,10 +540,15 @@ export default function RfidModalManager() {
             </button>
           </div>
 
+          {/* Operator Authorization Status Banner */}
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between">
+            <span>✅ Authorized Operator: <strong>{activeOperator?.name}</strong> ({activeOperator?.role || 'Staff Gudang'})</span>
+          </div>
+
           <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-4 space-y-2 text-xs">
             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Data Barang Saat Scan In:</p>
             <div className="grid grid-cols-2 gap-2 text-stone-700">
-              <div><span className="text-stone-400 block text-[10px]">SKU:</span><strong className="font-mono text-blue-600">{itemData.sku || '-'}</strong></div>
+              <div><span className="text-stone-400 block text-[10px]">SKU:</span><strong className="font-mono text-blue-600">{itemData.sku || '-'}</strong>data</div>
               <div><span className="text-stone-400 block text-[10px]">Nama Bahan:</span><strong className="text-stone-900">{itemData.nama_barang || '-'}</strong></div>
               <div><span className="text-stone-400 block text-[10px]">Supplier:</span><span>{itemData.kategori || '-'}</span></div>
               <div><span className="text-stone-400 block text-[10px]">No. Surat Jalan (SJ):</span><span className="font-mono font-semibold">{itemData.no_sj || '-'}</span></div>
@@ -448,31 +558,50 @@ export default function RfidModalManager() {
           <form onSubmit={handleConfirmScan2} className="space-y-3.5 pt-1">
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center gap-1.5">
-                <FileText size={14} className="text-amber-600" /> Nomor SPK (Surat Perintah Kerja):
+                <FileText size={14} className="text-amber-600" /> Work Order (SPK)
               </label>
-              <input type="text" value={noSpk} onChange={(e) => setNoSpk(e.target.value)} placeholder="Masukkan No. SPK..." className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-amber-500 font-mono text-stone-900 font-bold" required autoFocus />
+              <input
+                type="text"
+                value={noSpk}
+                onChange={(e) => setNoSpk(e.target.value)}
+                placeholder="Enter work order number..."
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-amber-500 font-mono text-stone-900 font-bold"
+                required
+                autoFocus
+              />
             </div>
 
             <div className="pt-3 flex gap-2">
-              <button type="button" onClick={handleCancelScan2} className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer">Batal</button>
-              <button type="submit" disabled={loading} className="flex-2 flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm">
-                {loading ? <Loader2 size={16} className="animate-spin" /> : <><Check size={16} /> Konfirmasi Stock OUT</>}
+              <button
+                type="button"
+                onClick={handleCancelScan2}
+                className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm flex items-center justify-center gap-2"
+              >
+                {loading && <Loader2 size={14} className="animate-spin" />}
+                Confirm Stock Out
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* 3. MODAL ALREADY REGISTERED */}
+      {/* 3. ALREADY REGISTERED */}
       {activeModal === 'registered' && (
         <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-stone-100 space-y-4 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
                 <AlertCircle size={20} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-stone-900">Kartu Sudah Teregister & Selesai!</h3>
+                <h3 className="text-base font-bold text-stone-900">Tag Already Registered</h3>
                 <p className="text-xs text-stone-500">UID: <code className="bg-stone-100 px-1.5 py-0.5 rounded text-blue-600 font-mono">{itemData.nfc_uid}</code></p>
               </div>
             </div>
@@ -481,18 +610,18 @@ export default function RfidModalManager() {
             </button>
           </div>
 
-          <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-4 space-y-2 text-xs">
-            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Informasi Barang:</p>
-            <div className="grid grid-cols-2 gap-2 text-stone-700">
-              <div><span className="text-stone-400 block text-[10px]">SKU:</span><strong className="font-mono text-blue-600">{itemData.sku || '-'}</strong></div>
-              <div><span className="text-stone-400 block text-[10px]">Nama Bahan:</span><strong className="text-stone-900">{itemData.nama_barang || '-'}</strong></div>
-              <div><span className="text-stone-400 block text-[10px]">No. SJ:</span><span className="font-mono font-semibold">{itemData.no_sj || '-'}</span></div>
-              <div><span className="text-stone-400 block text-[10px]">No. SPK:</span><span className="font-mono font-semibold">{itemData.no_spk || '-'}</span></div>
-            </div>
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl text-xs font-semibold">
+            This NFC tag has completed its In and Out cycle. Reset or use another tag for new transactions.
           </div>
 
           <div className="pt-3">
-            <button type="button" onClick={handleDismissRegistered} className="w-full bg-stone-900 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm">Tutup</button>
+            <button
+              type="button"
+              onClick={handleDismissRegistered}
+              className="w-full bg-stone-900 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
+            >
+              Close / Dismiss
+            </button>
           </div>
         </div>
       )}

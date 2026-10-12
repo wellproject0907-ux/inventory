@@ -333,14 +333,15 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="max-h-[600px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-20 bg-stone-50 shadow-xs">
-              <tr className="bg-stone-50/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider border-b border-stone-200">
+              <tr className="bg-stone-50 text-[11px] font-bold text-stone-500 uppercase tracking-wider border-b border-stone-200">
                 <th className="py-3 px-6">Item Name</th>
                 <th className="py-3 px-6">SKU & UID</th>
                 <th className="py-3 px-6">Supplier</th>
                 <th className="py-3 px-6">SJ & SPK No.</th>
+                <th className="py-3 px-6">Operator</th>
                 <th className="py-3 px-6">Tag Status</th>
                 <th className="py-3 px-6 text-right">Actions</th>
               </tr>
@@ -348,7 +349,7 @@ export default function InventoryPage() {
             <tbody className="divide-y divide-stone-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="text-center py-12 text-stone-400">Loading inventory data...</td>
+                  <td colSpan="7" className="text-center py-12 text-stone-400">Loading inventory data...</td>
                 </tr>
               ) : filteredItems.length > 0 ? (
                 filteredItems.map((item) => {
@@ -365,6 +366,11 @@ export default function InventoryPage() {
                       <td className="py-4 px-6 font-mono text-stone-600 text-[11px] min-w-[150px] whitespace-nowrap">
                         SJ: <span className="font-semibold text-stone-800">{item.no_sj || '-'}</span><br/>
                         SPK: <span className="font-semibold text-stone-800">{item.no_spk || '-'}</span>
+                      </td>
+                      <td className="py-4 px-6 text-stone-600 min-w-[130px] font-medium">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-stone-100 text-stone-700 border border-stone-200">
+                          {item.warehouse_user || 'Warehouse Admin'}
+                        </span>
                       </td>
                       <td className="py-4 px-6 whitespace-nowrap">
                         {isDepleted ? (

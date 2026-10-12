@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/services/firebase/config';
-import { collection, getDocs, deleteDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Database, Plus, RefreshCw, Trash2, Building2, Package, Search, Check, X, Tag, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { collection, getDocs, deleteDoc, doc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { Database, Plus, RefreshCw, Trash2, Building2, Package, Users, Scan, Search, Check, X, Tag, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 
 export default function MasterDataPage() {
-  const [activeTab, setActiveTab] = useState('bahan'); // 'bahan' or 'suplier'
+  const [activeTab, setActiveTab] = useState('bahan'); // 'bahan', 'suplier', or 'operator'
   const [bahanList, setBahanList] = useState([]);
   const [suplierList, setSuplierList] = useState([]);
+  const [operatorList, setOperatorList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Single Add Modal state
+  // Single Add Material Modal state
   const [showModal, setShowModal] = useState(false);
   const [sku, setSku] = useState('');
   const [namaBahan, setNamaBahan] = useState('');
@@ -20,6 +21,17 @@ export default function MasterDataPage() {
   const [satuan, setSatuan] = useState('Pcs');
   const [supplier, setSupplier] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Add Operator Modal state
+  const [showOperatorModal, setShowOperatorModal] = useState(false);
+  const [opNama, setOpNama] = useState('');
+  const [opUid, setOpUid] = useState('');
+  const [opRole, setOpRole] = useState('Staff Gudang');
+  const [opSubmitting, setOpSubmitting] = useState(false);
+
+  // Card Scan Modal state (for Arduino hardware reader / Web NFC)
+  const [showCardScanModal, setShowCardScanModal] = useState(false);
+  const [tempCardUid, setTempCardUid] = useState('');
 
   // Bulk Import Modal state
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -35,6 +47,9 @@ export default function MasterDataPage() {
 
       const suplierSnap = await getDocs(collection(db, 'suplier'));
       setSuplierList(suplierSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+      const operatorSnap = await getDocs(collection(db, 'operator'));
+      setOperatorList(operatorSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (err) {
       console.error('Error fetching master data:', err);
     } finally {
@@ -45,6 +60,60 @@ export default function MasterDataPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Listen to hardware Arduino RC522 scans when Card Scan Modal is open
+  useEffect(() => {
+    if (!showCardScanModal) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'system', 'settings'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.last_scanned_uid) {
+          const scannedAt = data.last_scanned_at?.toMillis ? data.last_scanned_at.toMillis() : 0;
+          if (Date.now() - scannedAt < 5000) {
+            const uid = data.last_scanned_uid;
+            setOpUid(uid.trim());
+            setOpNama('');
+            setOpRole('Staff Gudang');
+            setShowCardScanModal(false);
+            setShowOperatorModal(true);
+          }
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [showCardScanModal]);
+
+  const startScanForOperator = async () => {
+    // Open the scan modal which listens to hardware Arduino scans & allows manual/simulate entry
+    setShowCardScanModal(true);
+    setTempCardUid('');
+
+    // Also attempt Web NFC if supported
+    if ('NDEFReader' in window) {
+      try {
+        const ndef = new NDEFReader();
+        await ndef.scan();
+        ndef.addEventListener('reading', ({ serialNumber, message }) => {
+          let uid = serialNumber;
+          if (message && message.records && message.records.length > 0) {
+            const record = message.records[0];
+            if (record.recordType === 'text') {
+              const td = new TextDecoder(record.encoding || 'utf-8');
+              uid = td.decode(record.data);
+            }
+          }
+          const cleanUid = uid || serialNumber;
+          setOpUid(cleanUid.trim());
+          setOpNama('');
+          setOpRole('Staff Gudang');
+          setShowCardScanModal(false);
+          setShowOperatorModal(true);
+        }, { once: true });
+      } catch (err) {}
+    }
+  };
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
@@ -88,6 +157,35 @@ export default function MasterDataPage() {
     } catch (err) {
       setSubmitting(false);
       alert('Failed to save master data.');
+    }
+  };
+
+  const handleOperatorSubmit = async (e) => {
+    e.preventDefault();
+    if (!opNama || !opUid) {
+      alert('Operator Name and NFC UID are required!');
+      return;
+    }
+
+    try {
+      setOpSubmitting(true);
+      const docId = String(opUid).trim();
+      await setDoc(doc(db, 'operator', docId), {
+        nfc_uid: opUid.trim(),
+        nama_operator: opNama.trim(),
+        role: opRole.trim(),
+        updated_at: serverTimestamp()
+      });
+
+      setOpSubmitting(false);
+      setShowOperatorModal(false);
+      setOpNama('');
+      setOpUid('');
+      setOpRole('Staff Gudang');
+      fetchData();
+    } catch (err) {
+      setOpSubmitting(false);
+      alert('Failed to save operator data.');
     }
   };
 
@@ -196,6 +294,15 @@ export default function MasterDataPage() {
     return n.includes(q) || id.includes(q);
   });
 
+  const filteredOperator = operatorList.filter(item => {
+    if (!item) return false;
+    const n = String(item.nama_operator || '').toLowerCase();
+    const uid = String(item.nfc_uid || '').toLowerCase();
+    const r = String(item.role || '').toLowerCase();
+    const q = String(searchQuery || '').toLowerCase();
+    return n.includes(q) || uid.includes(q) || r.includes(q);
+  });
+
   return (
     <div className="w-full space-y-6 pb-20">
       {/* Header */}
@@ -204,7 +311,7 @@ export default function MasterDataPage() {
           <h1 className="text-xl font-bold text-stone-900 tracking-tight flex items-center gap-2">
             <Database className="text-blue-600" size={24} /> Master Data Management
           </h1>
-          <p className="text-xs text-stone-500 mt-0.5">Manage material and supplier data.</p>
+          <p className="text-xs text-stone-500 mt-0.5">Manage material, supplier, and authorized operator data.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -213,20 +320,32 @@ export default function MasterDataPage() {
             disabled={clearing}
             className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
           >
-            <AlertTriangle size={14} /> Delete All Data
+            <AlertTriangle size={14} /> Delete All
           </button>
-          <button
-            onClick={() => setShowBulkModal(true)}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm"
-          >
-            <FileSpreadsheet size={16} /> Bulk Import (Excel)
-          </button>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm"
-          >
-            <Plus size={16} /> Add Material
-          </button>
+          {activeTab === 'bahan' && (
+            <>
+              <button
+                onClick={() => setShowBulkModal(true)}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm"
+              >
+                <FileSpreadsheet size={16} /> Import Excel
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm"
+              >
+                <Plus size={16} /> Add Material
+              </button>
+            </>
+          )}
+          {activeTab === 'operator' && (
+            <button
+              onClick={startScanForOperator}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm"
+            >
+              <Scan size={16} /> Scan Card
+            </button>
+          )}
         </div>
       </div>
 
@@ -248,13 +367,21 @@ export default function MasterDataPage() {
         >
           <Building2 size={16} /> Suppliers ({suplierList.length})
         </button>
+        <button
+          onClick={() => { setActiveTab('operator'); setSearchQuery(''); }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
+            activeTab === 'operator' ? 'bg-white text-blue-600 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+          }`}
+        >
+          <Users size={16} /> Operators ({operatorList.length})
+        </button>
       </div>
 
       {/* Data Table with Search */}
       <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-2xs">
         <div className="p-4 border-b border-stone-100 flex flex-col md:flex-row justify-between items-center gap-3">
           <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
-            {activeTab === 'bahan' ? 'Master Material Data' : 'Master Supplier List'}
+            {activeTab === 'bahan' ? 'Master Material Data' : activeTab === 'suplier' ? 'Master Supplier List' : 'Authorized Operators & Staff'}
           </h4>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
@@ -266,7 +393,7 @@ export default function MasterDataPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search SKU, material name, supplier..."
+                placeholder={activeTab === 'operator' ? 'Search operator name, UID, role...' : 'Search SKU, material name, supplier...'}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-3 py-1.5 text-xs outline-none focus:border-blue-500 text-stone-900"
               />
             </div>
@@ -279,7 +406,7 @@ export default function MasterDataPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="max-h-[600px] overflow-y-auto overflow-x-auto">
           {loading ? (
             <div className="p-8 text-center text-xs text-stone-400">Loading data from Firebase...</div>
           ) : activeTab === 'bahan' ? (
@@ -319,7 +446,7 @@ export default function MasterDataPage() {
                 </tbody>
               </table>
             )
-          ) : (
+          ) : activeTab === 'suplier' ? (
             filteredSuplier.length === 0 ? (
               <div className="p-8 text-center text-xs text-stone-400">No supplier data in Firebase yet.</div>
             ) : (
@@ -348,11 +475,201 @@ export default function MasterDataPage() {
                 </tbody>
               </table>
             )
+          ) : (
+            filteredOperator.length === 0 ? (
+              <div className="p-8 text-center text-xs text-stone-400">No operators registered yet. Click "Scan Card" to register.</div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 z-20 bg-stone-50 shadow-xs">
+                  <tr className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                    <th className="p-3.5">Operator Name</th>
+                    <th className="p-3.5">NFC / ID Card UID</th>
+                    <th className="p-3.5">Role / Position</th>
+                    <th className="p-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 text-xs text-stone-800">
+                  {filteredOperator.map((item) => (
+                    <tr key={item.id} className="hover:bg-stone-50/50 transition">
+                      <td className="p-3.5 font-bold text-stone-900 flex items-center gap-2">
+                        <Users size={14} className="text-blue-600" /> {item.nama_operator || '-'}
+                      </td>
+                      <td className="p-3.5 font-mono text-blue-600 font-semibold">{item.nfc_uid || '-'}</td>
+                      <td className="p-3.5 text-stone-700 font-medium">{item.role || 'Staff Gudang'}</td>
+                      <td className="p-3.5 text-right">
+                        <button
+                          onClick={() => handleDelete('operator', item.id)}
+                          className="w-7 h-7 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition cursor-pointer ml-auto shadow-2xs"
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
           )}
         </div>
       </div>
 
-      {/* Add Single Modal */}
+      {/* Card Scan Modal for Hardware Arduino / WebNFC */}
+      {showCardScanModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-stone-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold animate-pulse">
+                  <Scan size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900">Waiting for Card Scan</h3>
+                  <p className="text-xs text-stone-500">Tap your RFID card on Arduino reader</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCardScanModal(false)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4 pt-2 text-center">
+              <div className="py-8 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center space-y-2">
+                <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center animate-bounce">
+                  <Scan size={24} />
+                </div>
+                <p className="text-xs font-bold text-stone-800">Please tap your ID card on the Arduino RC522 reader</p>
+                <p className="text-[10px] text-stone-400">The popup will open automatically once detected.</p>
+              </div>
+
+              {/* Simulation fallback for testing without physical hardware */}
+              <div className="pt-2 border-t border-stone-100">
+                <label className="block text-[11px] font-semibold text-stone-600 mb-1">Or Simulate Card UID:</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tempCardUid}
+                    onChange={(e) => setTempCardUid(e.target.value)}
+                    placeholder="e.g. OP-999"
+                    className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs font-mono text-stone-900 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!tempCardUid.trim()) return;
+                      setOpUid(tempCardUid.trim());
+                      setOpNama('');
+                      setOpRole('Staff Gudang');
+                      setShowCardScanModal(false);
+                      setShowOperatorModal(true);
+                    }}
+                    className="bg-blue-600 text-white px-3 py-2 rounded-xl text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                  >
+                    Use UID
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCardScanModal(false)}
+                  className="w-full py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Operator Modal */}
+      {showOperatorModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-stone-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900">Add Authorized Operator</h3>
+                  <p className="text-xs text-stone-500">Register employee ID card for scan authorization</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOperatorModal(false)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleOperatorSubmit} className="space-y-3.5 pt-2">
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">NFC / ID Card UID:</label>
+                <input
+                  type="text"
+                  value={opUid}
+                  onChange={(e) => setOpUid(e.target.value)}
+                  placeholder="Example: OP-CARD-001 or NFC UID"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 font-mono text-stone-900"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">Operator Name:</label>
+                <input
+                  type="text"
+                  value={opNama}
+                  onChange={(e) => setOpNama(e.target.value)}
+                  placeholder="Example: Budi Santoso"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 font-bold text-stone-900"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">Role / Position:</label>
+                <select
+                  value={opRole}
+                  onChange={(e) => setOpRole(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900"
+                >
+                  <option value="Staff Gudang">Staff Gudang</option>
+                  <option value="Helper Gudang">Helper Gudang</option>
+                  <option value="Security">Security</option>
+                  <option value="Super Admin">Super Admin</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setShowOperatorModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition cursor-pointer"
+                >
+                  Cancel: Confirm modal settings.
+                </button>
+                <button
+                  type="submit"
+                  disabled={opSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {opSubmitting ? 'Saving...' : 'Save Operator'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Single Material Modal header section modal check */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-stone-100 space-y-4">
@@ -400,14 +717,12 @@ export default function MasterDataPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Maximum Stock:</label>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">Max Stock:</label>
                 <input
                   type="number"
-                  min="0"
                   value={stokMaksimum}
                   onChange={(e) => setStokMaksimum(e.target.value)}
-                  placeholder="10, 40, etc..."
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 font-bold text-stone-900"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900 font-bold"
                   required
                 />
               </div>
@@ -418,38 +733,37 @@ export default function MasterDataPage() {
                   type="text"
                   value={satuan}
                   onChange={(e) => setSatuan(e.target.value)}
-                  placeholder="Pcs, Roll, Gallon, Meter..."
+                  placeholder="Pcs, Roll, Botol, etc."
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Supplier:</label>
+                <label className="block text-xs font-semibold text-stone-700 smb-1">Supplier Name:</label>
                 <input
                   type="text"
                   value={supplier}
                   onChange={(e) => setSupplier(e.target.value)}
-                  placeholder="Supplier / vendor name..."
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900"
-                  required
+                  placeholder="Supplier name or General Supplier"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900 font-medium"
                 />
               </div>
 
-              <div className="pt-3 flex gap-2">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
                 >
-                  {submitting ? <RefreshCw size={16} className="animate-spin" /> : <><Check size={16} /> Save to Firebase</>}
+                  {submitting ? 'Saving...' : 'Save Material'}
                 </button>
               </div>
             </form>
@@ -460,15 +774,15 @@ export default function MasterDataPage() {
       {/* Bulk Import Modal */}
       {showBulkModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-stone-100 space-y-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-stone-100 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                   <FileSpreadsheet size={20} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-stone-900">Bulk Import (Copy-Paste from Excel)</h3>
-                  <p className="text-xs text-stone-500">Copy multiple rows from Excel, then paste below</p>
+                  <h3 className="text-base font-bold text-stone-900">Bulk Import Materials</h3>
+                  <p className="text-xs text-stone-500">Paste Excel/CSV data (Tab or comma separated)</p>
                 </div>
               </div>
               <button
@@ -482,35 +796,25 @@ export default function MasterDataPage() {
             <form onSubmit={handleBulkSubmit} className="space-y-3.5 pt-2">
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Paste Data (Column Format: <code>SKU [Tab] Material Name [Tab] Maximum Stock [Tab] Unit [Tab] Supplier</code>):
+                  Paste Data (Columns: SKU, Name, Max Stock, Unit, Supplier):
                 </label>
                 <textarea
                   rows={8}
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
-                  placeholder="MAT-001	Clear Acrylic 3mm	10	Pcs	Colorful&#10;MAT-002	Albatros Dye	5	Roll	Paper Works"
+                  placeholder="SKU-001	Material Name	100	Pcs	PT Supplier A&#10;SKU-002	Material Name 2	50	Roll	PT Supplier B"
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-xs outline-none focus:border-blue-500 font-mono text-stone-900"
                   required
                 />
-                <p className="text-[11px] text-stone-400 mt-1">
-                  *Ensure when copying from Excel the order is: <strong>SKU</strong>, <strong>Material Name</strong>, <strong>Maximum Stock</strong>, <strong>Unit</strong>, <strong>Supplier</strong>.
-                </p>
               </div>
 
-              <div className="pt-3 flex gap-2">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
                 <button
                   type="button"
                   onClick={() => setShowBulkModal(false)}
-                  className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={bulkSubmitting}
-                  className="flex-2 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
-                >
-                  {bulkSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <><Check size={16} /> Process Bulk Import</>}
                 </button>
               </div>
             </form>

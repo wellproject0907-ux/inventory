@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/services/firebase/config';
 import { collection, getDocs, query, orderBy, doc, onSnapshot } from 'firebase/firestore';
-import { ClipboardCheck, Search, ArrowDownLeft, ArrowUpRight, User, Clock, RefreshCw, Scan, FileSpreadsheet, CheckCircle2, AlertCircle, PackageCheck } from 'lucide-react';
+import { ClipboardCheck, Search, User, Clock, RefreshCw, Scan, FileSpreadsheet, CheckCircle2, AlertCircle, PackageCheck, ChevronRight, X, Layers } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function StockOpnamePage() {
@@ -12,6 +12,7 @@ export default function StockOpnamePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [scannedResult, setScannedResult] = useState(null);
   const [scanInput, setScanInput] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState(null); // Detail modal for clicked material group
 
   const fetchOpnameData = async () => {
     try {
@@ -84,7 +85,7 @@ export default function StockOpnamePage() {
     if (found) {
       setScannedResult({ found: true, data: found });
     } else {
-      setScannedResult({ found: false, query: uid });
+      setScannedResult({ found: false, query: scanInput });
     }
     setScanInput('');
   };
@@ -133,6 +134,23 @@ export default function StockOpnamePage() {
     (item.no_spk && item.no_spk.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // Group items by SKU / Material Name
+  const groupedMap = {};
+  filteredItems.forEach(item => {
+    const key = (item.sku || item.nama_barang || 'UNKNOWN').trim().toLowerCase();
+    if (!groupedMap[key]) {
+      groupedMap[key] = {
+        key,
+        sku: item.sku || '-',
+        nama_barang: item.nama_barang || 'Unnamed Material',
+        supplier: item.kategori || 'General',
+        items: []
+      };
+    }
+    groupedMap[key].items.push(item);
+  });
+  const groupedList = Object.values(groupedMap);
+
   return (
     <div className="w-full max-w-full space-y-6 pb-20">
       {/* Header */}
@@ -141,7 +159,7 @@ export default function StockOpnamePage() {
           <h1 className="text-xl font-bold text-stone-900 tracking-tight flex items-center gap-2">
             <ClipboardCheck className="text-blue-600" size={24} /> Stock Opname & Warehouse Audit
           </h1>
-          <p className="text-xs text-stone-500 mt-0.5">Check the physical status of items currently in the warehouse.</p>
+          <p className="text-xs text-stone-500 mt-0.5">Check the physical status and grouped quantities of items in the warehouse.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -226,9 +244,13 @@ export default function StockOpnamePage() {
         )}
       </div>
 
-      {/* Search & Audit Table */}
+      {/* Grouped Stock Opname Table */}
       <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-2xs">
-        <div className="p-4 border-b border-stone-100 flex items-center gap-3">
+        <div className="p-4 border-b border-stone-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Layers size={18} className="text-blue-600" />
+            <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Grouped Material Inventory ({groupedList.length} Groups)</h3>
+          </div>
           <div className="relative flex-1 md:w-72">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-stone-400">
               <Search size={14} />
@@ -237,86 +259,60 @@ export default function StockOpnamePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search in warehouse audit table..."
+              placeholder="Search grouped items..."
               className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="max-h-[600px] overflow-y-auto overflow-x-auto">
           {loading ? (
             <div className="p-8 text-center text-xs text-stone-400">Loading Stock Opname data...</div>
-          ) : filteredItems.length === 0 ? (
+          ) : groupedList.length === 0 ? (
             <div className="p-8 text-center text-xs text-stone-400">No stock opname reconciliation data yet.</div>
           ) : (
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-20 bg-stone-50 shadow-xs">
                 <tr className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
-                  <th className="p-3.5">SKU & UID</th>
-                  <th className="p-3.5">Material Name</th>
-                  <th className="p-3.5 text-emerald-700 bg-emerald-50/50">Scan IN</th>
-                  <th className="p-3.5 text-amber-700 bg-amber-50/50">Scan OUT</th>
-                  <th className="p-3.5 text-center">Warehouse User</th>
-                  <th className="p-3.5 text-center">Warehouse Status</th>
+                  <th className="p-3.5">SKU & Material Name</th>
+                  <th className="p-3.5">Supplier</th>
+                  <th className="p-3.5 text-center">Total Quantity (UIDs)</th>
+                  <th className="p-3.5 text-center">Warehouse Status Summary</th>
+                  <th className="p-3.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-xs text-stone-800">
-                {filteredItems.map((item) => {
-                  const isOut = item.is_completed || item.lifecycle === 'COMPLETED';
+                {groupedList.map((group) => {
+                  const totalQty = group.items.length;
+                  const activeCount = group.items.filter(i => !i.is_completed && i.lifecycle !== 'COMPLETED').length;
                   return (
-                    <tr key={item.id} className="hover:bg-stone-50/50 transition">
-                      <td className="p-3.5 max-w-[240px] break-all whitespace-normal">
-                        <p className="font-mono font-bold text-blue-600 break-all">{item.sku || '-'}</p>
-                        <p className="text-[10px] text-stone-400 font-mono">UID: {item.nfc_uid || '-'}</p>
-                        <p className="text-[10px] text-stone-400 mt-0.5">
-                          SJ: <span className="font-mono font-medium text-stone-700">{item.no_sj || '-'}</span> | SPK: <span className="font-mono font-medium text-stone-700">{item.no_spk || '-'}</span>
-                        </p>
+                    <tr
+                      key={group.key}
+                      onClick={() => setSelectedGroup(group)}
+                      className="hover:bg-blue-50/40 transition cursor-pointer"
+                    >
+                      <td className="p-3.5">
+                        <p className="font-mono font-bold text-blue-600">{group.sku}</p>
+                        <p className="font-bold text-stone-900">{group.nama_barang}</p>
                       </td>
-                      <td className="p-3.5 font-bold text-stone-900">
-                        {item.nama_barang || '-'}
-                        <span className="block text-[10px] text-stone-400 font-normal">Supplier: {item.kategori || '-'}</span>
-                      </td>
-                      {/* Scan IN Column */}
-                      <td className="p-3.5 bg-emerald-50/30">
-                        <div className="flex items-center gap-1.5 text-emerald-800 font-medium">
-                          <ArrowDownLeft size={14} className="text-emerald-600 shrink-0" />
-                          <span>Qty: 1</span>
-                        </div>
-                        <p className="text-[10px] text-stone-500 mt-0.5 flex items-center gap-1">
-                          <Clock size={11} /> {formatTimestamp(item.scan_in_at)}
-                        </p>
-                      </td>
-                      {/* Scan / Status OUT Column */}
-                      <td className="p-3.5 bg-amber-50/30">
-                        {item.scan_out_at ? (
-                          <>
-                            <div className="flex items-center gap-1.5 text-amber-800 font-medium">
-                              <ArrowUpRight size={14} className="text-amber-600 shrink-0" />
-                              <span>Qty: 1 (Completed)</span>
-                            </div>
-                            <p className="text-[10px] text-stone-500 mt-0.5 flex items-center gap-1">
-                              <Clock size={11} /> {formatTimestamp(item.scan_out_at)}
-                            </p>
-                          </>
-                        ) : (
-                          <span className="text-stone-400 italic text-[11px]">Not Out (Active in Warehouse)</span>
-                        )}
-                      </td>
-                      {/* Warehouse User */}
+                      <td className="p-3.5 font-medium text-stone-700">{group.supplier}</td>
                       <td className="p-3.5 text-center">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
-                          <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                          {totalQty} UIDs / Items
                         </span>
                       </td>
-                      {/* Status */}
                       <td className="p-3.5 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          isOut
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-emerald-600 text-white shadow-xs'
-                        }`}>
-                          {isOut ? 'CHECKED OUT' : 'IN WAREHOUSE'}
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          {activeCount} Active / {totalQty - activeCount} Completed
                         </span>
+                      </td>
+                      <td className="p-3.5 text-right">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedGroup(group); }}
+                          className="bg-stone-100 hover:bg-stone-200 text-stone-700 px-3 py-1.5 rounded-xl font-semibold text-xs transition inline-flex items-center gap-1 ml-auto cursor-pointer"
+                        >
+                          View UIDs <ChevronRight size={14} />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -326,6 +322,75 @@ export default function StockOpnamePage() {
           )}
         </div>
       </div>
+
+      {/* Group Detail Modal */}
+      {selectedGroup && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-stone-100 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <Layers size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900">{selectedGroup.nama_barang}</h3>
+                  <p className="text-xs text-stone-500 font-mono">SKU: {selectedGroup.sku} | Total: {selectedGroup.items.length} UIDs</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedGroup(null)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wider">Individual UID Breakdown ({selectedGroup.items.length})</h4>
+
+              <div className="divide-y divide-stone-100 border border-stone-200 rounded-xl overflow-hidden max-h-96 overflow-y-auto">
+                {selectedGroup.items.map((item) => {
+                  const isOut = item.is_completed || item.lifecycle === 'COMPLETED';
+                  return (
+                    <div key={item.id} className="p-3.5 bg-stone-50/50 hover:bg-stone-50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <code className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">UID: {item.nfc_uid}</code>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isOut ? 'bg-amber-100 text-amber-800' : 'bg-emerald-600 text-white'
+                          }`}>
+                            {isOut ? 'CHECKED OUT' : 'IN WAREHOUSE'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-600 font-mono">
+                          SJ: <span className="font-semibold text-stone-800">{item.no_sj || '-'}</span> | SPK: <span className="font-semibold text-stone-800">{item.no_spk || '-'}</span>
+                        </p>
+                        <p className="text-[10px] text-stone-400 flex items-center gap-1">
+                          <Clock size={11} /> In: {formatTimestamp(item.scan_in_at)} {item.scan_out_at ? `| Out: ${formatTimestamp(item.scan_out_at)}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1 rounded-full shrink-0">
+                        <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-3 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setSelectedGroup(null)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   Boxes,
   ClipboardCheck,
   Database,
+  Settings,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen
@@ -20,6 +21,7 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
     { label: 'Stock & Items', href: '/inventory', icon: Boxes },
     { label: 'Stock Opname', href: '/stock-opname', icon: ClipboardCheck },
     { label: 'Master Data', href: '/master-data', icon: Database },
+    { label: 'Settings & Roles', href: '/settings', icon: Settings },
   ];
 
   if (isCollapsed) {

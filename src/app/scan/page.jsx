@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Scan, Radio, Loader2, Cpu } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { db } from '@/services/firebase/config';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { Scan, Radio, Loader2, Cpu, Users, ShieldCheck } from 'lucide-react';
 
 export default function ScanPage() {
   const [scanning, setScanning] = useState(false);
@@ -10,6 +12,50 @@ export default function ScanPage() {
   const [foundItem, setFoundItem] = useState(null);
   const [isNotFound, setIsNotFound] = useState(false);
   const [manualUid, setManualUid] = useState('');
+
+  // Operator Authorization state
+  const [authorizedOperator, setAuthorizedOperator] = useState(null);
+  const authorizedOperatorRef = useRef(null);
+  const [operatorScanning, setOperatorScanning] = useState(false);
+  const [operatorStatus, setOperatorStatus] = useState('Tap to scan staff/operator ID card');
+
+  useEffect(() => {
+    authorizedOperatorRef.current = authorizedOperator;
+  }, [authorizedOperator]);
+
+  // Listen to real-time hardware Arduino RC522 scans
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'system', 'settings'), async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.last_scanned_uid) {
+          const scannedAt = data.last_scanned_at?.toMillis ? data.last_scanned_at.toMillis() : 0;
+          if (Date.now() - scannedAt < 5000) {
+            const uid = data.last_scanned_uid;
+
+            // 1. Check if scanned card is an operator card
+            try {
+              const opDoc = await getDoc(doc(db, 'operator', uid));
+              if (opDoc.exists()) {
+                const opData = opDoc.data();
+                setAuthorizedOperator({ nfc_uid: uid, ...opData });
+                return;
+              }
+            } catch (e) {}
+
+            // 2. If not operator card, check if operator is authorized
+            if (authorizedOperatorRef.current) {
+              handleScannedUid(uid);
+            } else {
+              alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu pada alat Arduino.');
+            }
+          }
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Registration state
   const [regNama, setRegNama] = useState('');
@@ -23,7 +69,67 @@ export default function ScanPage() {
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
+  const verifyOperatorUid = async (uid) => {
+    try {
+      const cleanUid = String(uid).trim();
+      const docRef = doc(db, 'operator', cleanUid);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const opData = docSnap.data();
+        setAuthorizedOperator({ nfc_uid: cleanUid, ...opData });
+        setOperatorStatus(`✅ Authorized: ${opData.nama_operator} (${opData.role || 'Staff Gudang'})`);
+      } else {
+        alert(`❌ Kartu UID "${cleanUid}" tidak terdaftar sebagai Operator/Staff Gudang yang sah. Silakan daftarkan terlebih dahulu di menu Master Data -> Operators.`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Gagal memverifikasi kartu operator.');
+    }
+  };
+
+  const startOperatorScan = async () => {
+    if (!('NDEFReader' in window)) {
+      const manual = prompt('Enter Operator ID UID manually:');
+      if (manual) verifyOperatorUid(manual.trim());
+      return;
+    }
+
+    try {
+      setOperatorScanning(true);
+      setOperatorStatus('Waiting for Operator ID Card...');
+      const ndef = new NDEFReader();
+      await ndef.scan();
+
+      ndef.addEventListener('reading', ({ serialNumber, message }) => {
+        setOperatorScanning(false);
+        let uid = serialNumber;
+        if (message && message.records && message.records.length > 0) {
+          const record = message.records[0];
+          if (record.recordType === 'text') {
+            const td = new TextDecoder(record.encoding || 'utf-8');
+            uid = td.decode(record.data);
+          }
+        }
+        verifyOperatorUid(uid || serialNumber);
+      }, { once: true });
+    } catch (err) {
+      setOperatorScanning(false);
+      setOperatorStatus(`Error: ${err.message}`);
+    }
+  };
+
+  const handleSimulateOperator = () => {
+    const mockUid = prompt('Enter Registered Operator UID:', 'OP-001');
+    if (mockUid) verifyOperatorUid(mockUid.trim());
+  };
+
   const handleScannedUid = async (uid) => {
+    if (!authorizedOperatorRef.current) {
+      alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator/Staff terlebih dahulu.');
+      return;
+    }
+
     setScannedUid(uid);
     setStatusMsg('');
     try {
@@ -46,6 +152,11 @@ export default function ScanPage() {
   };
 
   const startNfcScan = async () => {
+    if (!authorizedOperatorRef.current) {
+      alert('⚠️ Silakan scan Kartu ID Operator untuk otorisasi terlebih dahulu sebelum melakukan scan barang!');
+      return;
+    }
+
     if (!('NDEFReader' in window)) {
       alert('Web NFC API is not supported in this browser. Use Google Chrome on Android, or use "Simulate UID" / "Manual Search".');
       const manualPrompt = prompt('Enter NFC UID manually:');
@@ -84,12 +195,20 @@ export default function ScanPage() {
   };
 
   const handleSimulate = () => {
+    if (!authorizedOperatorRef.current) {
+      alert('⚠️ Silakan scan Kartu ID Operator untuk otorisasi terlebih dahulu!');
+      return;
+    }
     const sampleUids = ['BARANG-001', 'BARANG-002', 'BOX-FLEX-99'];
     const randomUid = sampleUids[Math.floor(Math.random() * sampleUids.length)];
     handleScannedUid(randomUid);
   };
 
   const handleManualSearch = () => {
+    if (!authorizedOperatorRef.current) {
+      alert('⚠️ Silakan scan Kartu ID Operator untuk otorisasi terlebih dahulu!');
+      return;
+    }
     const uid = manualUid.trim();
     if (uid) {
       handleScannedUid(uid);
@@ -101,6 +220,10 @@ export default function ScanPage() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (!authorizedOperatorRef.current) {
+      alert('⚠️ Otorisasi Operator Diperlukan!');
+      return;
+    }
     if (!scannedUid || !regNama) {
       alert('UID and Item Name are required!');
       return;
@@ -111,7 +234,13 @@ export default function ScanPage() {
       const res = await fetch('/api/barang', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nfc_uid: scannedUid, nama_barang: regNama, kategori: regKategori, stok: Number(regStok) })
+        body: JSON.stringify({
+          nfc_uid: scannedUid,
+          nama_barang: regNama,
+          kategori: regKategori,
+          stok: Number(regStok),
+          warehouse_user: authorizedOperatorRef.current.nama_operator
+        })
       });
       const result = await res.json();
       setLoading(false);
@@ -129,6 +258,10 @@ export default function ScanPage() {
 
   const handleTransactionSubmit = async (e) => {
     e.preventDefault();
+    if (!authorizedOperatorRef.current) {
+      alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu.');
+      return;
+    }
     if (!scannedUid || isNaN(jumlah)) {
       alert('Incomplete transaction data.');
       return;
@@ -139,7 +272,13 @@ export default function ScanPage() {
       const res = await fetch('/api/transaksi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nfc_uid: scannedUid, tipe, jumlah: Number(jumlah), keterangan })
+        body: JSON.stringify({
+          nfc_uid: scannedUid,
+          tipe,
+          jumlah: Number(jumlah),
+          keterangan,
+          warehouse_user: authorizedOperatorRef.current.nama_operator
+        })
       });
       const result = await res.json();
       setLoading(false);
@@ -166,9 +305,62 @@ export default function ScanPage() {
         </span>
       </div>
 
+      {/* Operator Authorization Banner */}
+      <div className={`p-5 rounded-2xl border transition-all ${
+        authorizedOperator
+          ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+          : 'bg-amber-50 border-amber-200 text-amber-900'
+      }`}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold shadow-xs ${
+              authorizedOperator ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white animate-pulse'
+            }`}>
+              {authorizedOperator ? <ShieldCheck size={24} /> : <Users size={24} />}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold">
+                {authorizedOperator ? `Authorized Operator: ${authorizedOperator.nama_operator}` : '⚠️ Operator Authorization Required'}
+              </h3>
+              <p className="text-xs mt-0.5 opacity-90">
+                {authorizedOperator
+                  ? `Role: ${authorizedOperator.role || 'Staff Gudang'} | Card UID: ${authorizedOperator.nfc_uid} — Ready for Scan In/Out`
+                  : 'Please tap your staff ID card on the Arduino RC522 reader to authorize.'}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            {authorizedOperator ? (
+              <button
+                onClick={() => setAuthorizedOperator(null)}
+                className="bg-white hover:bg-stone-50 text-stone-700 font-semibold px-4 py-2 rounded-xl text-xs border border-stone-200 shadow-2xs transition cursor-pointer"
+              >
+                Switch / Lock Operator
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={startOperatorScan}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-sm transition cursor-pointer"
+                >
+                  {operatorScanning ? 'Scanning ID Card...' : 'Scan Operator ID Card'}
+                </button>
+                <button
+                  onClick={handleSimulateOperator}
+                  className="bg-white hover:bg-stone-50 text-stone-700 font-semibold px-3 py-2 rounded-xl text-xs border border-stone-200 shadow-2xs transition cursor-pointer"
+                >
+                  Simulate ID
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left Column: NFC Scanner */}
-        <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-2xs space-y-4">
+        <div className={`bg-white rounded-2xl border border-stone-200/80 p-6 shadow-2xs space-y-4 ${!authorizedOperator ? 'opacity-50 pointer-events-none' : ''}`}>
           <h3 className="text-sm font-bold text-stone-900">1. Scan NFC Tag / Card</h3>
           <p className="text-xs text-stone-500">
             Tap anywhere on the scanner box below to start scanning, then tap your Android smartphone against the NFC tag/card.
@@ -230,7 +422,7 @@ export default function ScanPage() {
         </div>
 
         {/* Right Column: Item Details & Transaction Form */}
-        <div className={`bg-white rounded-2xl border border-stone-200/80 p-6 shadow-2xs space-y-4 ${!scannedUid ? 'opacity-60 pointer-events-none' : ''}`}>
+        <div className={`bg-white rounded-2xl border border-stone-200/80 p-6 shadow-2xs space-y-4 ${(!scannedUid || !authorizedOperator) ? 'opacity-60 pointer-events-none' : ''}`}>
           <h3 className="text-sm font-bold text-stone-900">2. Item Details & Transaction</h3>
 
           {!scannedUid ? (
@@ -283,54 +475,66 @@ export default function ScanPage() {
               ) : null}
 
               {foundItem && (
-                <form onSubmit={handleTransactionSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-600 mb-1">Transaction Type:</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
-                        <input type="radio" name="tipe" value="IN" checked={tipe === 'IN'} onChange={() => setTipe('IN')} /> Stock In (IN)
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
-                        <input type="radio" name="tipe" value="OUT" checked={tipe === 'OUT'} onChange={() => setTipe('OUT')} /> Stock Out (OUT)
-                      </label>
-                    </div>
+                <form onSubmit={handleTransactionSubmit} className="space-y-4 pt-2 border-t border-stone-100">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTipe('IN')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        tipe === 'IN' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      Stock IN (+)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTipe('OUT')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        tipe === 'OUT' ? 'bg-amber-600 text-white shadow-xs' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      Stock OUT (-)
+                    </button>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-600 mb-1">Quantity:</label>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">Quantity:</label>
                     <input
                       type="number"
                       min="1"
                       value={jumlah}
-                      onChange={(e) => setJumlah(Number(e.target.value))}
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 outline-none"
+                      onChange={(e) => setJumlah(e.target.value)}
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none font-bold text-stone-900"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-600 mb-1">Description / Notes:</label>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">Note / Description (Optional):</label>
                     <input
                       type="text"
                       value={keterangan}
                       onChange={(e) => setKeterangan(e.target.value)}
-                      placeholder="e.g. Shipment batch #402"
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none"
+                      placeholder="e.g. Received from Supplier / Shipped to Project"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none text-stone-900"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm flex items-center justify-center gap-2"
                   >
-                    {loading ? <Loader2 size={16} className="animate-spin" /> : 'Save Transaction'}
+                    {loading && <Loader2 size={14} className="animate-spin" />}
+                    Confirm Transaction ({tipe})
                   </button>
                 </form>
               )}
 
               {statusMsg && (
-                <p className="mt-3 text-xs font-semibold text-center text-stone-800">{statusMsg}</p>
+                <div className="mt-4 p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-800">
+                  {statusMsg}
+                </div>
               )}
             </div>
           )}

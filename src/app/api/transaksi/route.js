@@ -5,7 +5,8 @@ import { collection, query, where, getDocs, updateDoc, doc, addDoc, serverTimest
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { nfc_uid, tipe, jumlah, keterangan } = body;
+    const { nfc_uid, tipe, jumlah, keterangan, warehouse_user } = body;
+    const operatorName = warehouse_user || 'Warehouse Admin';
 
     if (!nfc_uid || !tipe) {
       return NextResponse.json({ error: 'nfc_uid and tipe (IN/OUT) are required' }, { status: 400 });
@@ -39,6 +40,7 @@ export async function POST(req) {
 
     await updateDoc(itemRef, {
       stok: newStok,
+      warehouse_user: operatorName,
       updated_at: serverTimestamp()
     });
 
@@ -46,6 +48,7 @@ export async function POST(req) {
       nfc_uid,
       tipe,
       jumlah: qty,
+      warehouse_user: operatorName,
       keterangan: keterangan || (tipe === 'IN' ? 'Warehouse Stock In' : 'Warehouse Stock Out'),
       timestamp: serverTimestamp()
     });

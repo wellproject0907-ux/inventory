@@ -169,7 +169,7 @@ export default function ProductInventoryTable() {
 
       <div className={styles.tableWrapper}>
         <table className={styles.table}>
-          <thead>
+          <thead className="sticky top-0 z-20 bg-[#f1f3f5] shadow-xs">
             <tr className={styles.thRow}>
               <th className={styles.thClickable} onClick={() => handleSort('name')}>
                 <div className="flex items-center gap-1.5">Name <ArrowUpDown size={12} /></div>
