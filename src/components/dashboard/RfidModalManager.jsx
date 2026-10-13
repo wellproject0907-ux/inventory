@@ -131,7 +131,6 @@ export default function RfidModalManager() {
     }, 2000);
 
     return () => {
-      unsubscribe();
       unsubSettings();
       clearInterval(pollInterval);
     };
