@@ -75,65 +75,65 @@ export default function RfidModalManager() {
       }
     });
 
-    // Listen to 'barang' collection in real-time with sessionStorage deduping (Zero database write overhead, 0% quota 429 risk)
-    const unsubscribe = onSnapshot(collection(db, 'barang'), (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Robust polling via Next.js API route (/api/barang) to bypass network/firewall blocks on Firestore WebSockets
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/barang');
+        if (!res.ok) return;
+        const docs = await res.json();
 
-      // PRIORITAS 1: Scan 1 - IN
-      const inDoc = docs.find(d => {
-        if (d.needs_naming !== true) return false;
-        const key = 'handled_in_' + d.nfc_uid;
-        if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
-        return true;
-      });
+        // PRIORITAS 1: Scan 1 - IN
+        const inDoc = docs.find(d => {
+          if (d.needs_naming !== true) return false;
+          const key = 'handled_in_' + d.nfc_uid;
+          if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
+          return true;
+        });
 
-      if (inDoc) {
-        if (typeof window !== 'undefined') sessionStorage.setItem('handled_in_' + inDoc.nfc_uid, 'true');
-        setItemData(inDoc);
-        setActiveModal('scan1');
-        return;
-      }
+        if (inDoc) {
+          if (typeof window !== 'undefined') sessionStorage.setItem('handled_in_' + inDoc.nfc_uid, 'true');
+          setItemData(inDoc);
+          setActiveModal('scan1');
+          return;
+        }
 
-      // PRIORITAS 2: Already Registered
-      const regDoc = docs.find(d => {
-        if (d.needs_already_registered_popup !== true) return false;
-        const key = 'handled_reg_' + d.nfc_uid;
-        if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
-        return true;
-      });
+        // PRIORITAS 2: Already Registered
+        const regDoc = docs.find(d => {
+          if (d.needs_already_registered_popup !== true) return false;
+          const key = 'handled_reg_' + d.nfc_uid;
+          if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
+          return true;
+        });
 
-      if (regDoc) {
-        if (typeof window !== 'undefined') sessionStorage.setItem('handled_reg_' + regDoc.nfc_uid, 'true');
-        setItemData(regDoc);
-        setActiveModal('registered');
-        fetchHistory(regDoc.nfc_uid);
-        return;
-      }
+        if (regDoc) {
+          if (typeof window !== 'undefined') sessionStorage.setItem('handled_reg_' + regDoc.nfc_uid, 'true');
+          setItemData(regDoc);
+          setActiveModal('registered');
+          fetchHistory(regDoc.nfc_uid);
+          return;
+        }
 
-      // PRIORITAS 3: Scan 2 - OUT
-      const outDoc = docs.find(d => {
-        if (!(d.needs_spk === true && !d.needs_naming)) return false;
-        const key = 'handled_out_' + d.nfc_uid;
-        if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
-        return true;
-      });
+        // PRIORITAS 3: Scan 2 - OUT
+        const outDoc = docs.find(d => {
+          if (!(d.needs_spk === true && !d.needs_naming)) return false;
+          const key = 'handled_out_' + d.nfc_uid;
+          if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
+          return true;
+        });
 
-      if (outDoc) {
-        if (typeof window !== 'undefined') sessionStorage.setItem('handled_out_' + outDoc.nfc_uid, 'true');
-        setItemData(outDoc);
-        setActiveModal('scan2');
-        return;
-      }
-
-      if (!pendingAuthUid) {
-        setActiveModal(null);
-        setItemData(null);
-      }
-    });
+        if (outDoc) {
+          if (typeof window !== 'undefined') sessionStorage.setItem('handled_out_' + outDoc.nfc_uid, 'true');
+          setItemData(outDoc);
+          setActiveModal('scan2');
+          return;
+        }
+      } catch (e) {}
+    }, 2000);
 
     return () => {
       unsubscribe();
       unsubSettings();
+      clearInterval(pollInterval);
     };
   }, [pendingAuthUid, activeModal]);
 
