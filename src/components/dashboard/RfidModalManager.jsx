@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '@/services/firebase/config';
-import { collection, query, where, onSnapshot, getDocs, orderBy, limit, deleteDoc, doc, setDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, orderBy, limit, deleteDoc, doc, setDoc, updateDoc, addDoc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { Tag, Loader2, Check, Search, Truck, X, History, Clock, Sparkles, ArrowDownLeft, FileText, AlertCircle, Users } from 'lucide-react';
 
 export default function RfidModalManager() {
+  const tabIdRef = useRef(typeof window !== 'undefined' ? Math.random().toString(36).substring(2, 9) : 'tab');
   const [activeModal, setActiveModal] = useState(null); // 'operator_auth', 'scan1', 'scan2', 'registered'
   const [itemData, setItemData] = useState(null);
   const [activeOperator, setActiveOperator] = useState({ name: 'Test Operator', role: 'Staff Gudang' });
@@ -74,43 +75,48 @@ export default function RfidModalManager() {
       }
     });
 
-    // Listen to 'barang' collection in real-time with strict priority order
-    const unsubscribe = onSnapshot(collection(db, 'barang'), (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Listen to system/active_scan with atomic transaction claiming (Zero Mirroring across PCs)
+    const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), async (docSnap) => {
+      if (docSnap.exists()) {
+        const scanData = docSnap.data();
+        if (scanData && !scanData.claimed && scanData.uid) {
+          try {
+            let claimed = false;
+            await runTransaction(db, async (transaction) => {
+              const currentDoc = await transaction.get(doc(db, 'system', 'active_scan'));
+              if (!currentDoc.exists() || currentDoc.data().claimed || currentDoc.data().uid !== scanData.uid) {
+                return;
+              }
+              transaction.update(doc(db, 'system', 'active_scan'), {
+                claimed: true,
+                claimed_by: tabIdRef.current
+              });
+              claimed = true;
+            });
 
-      // PRIORITAS 1: Scan 1 - IN (Registrasi baru / Belum selesai isi form)
-      const inDoc = docs.find(d => d.needs_naming === true);
-      if (inDoc) {
-        setItemData(inDoc);
-        setActiveModal('scan1');
-        return;
-      }
-
-      // PRIORITAS 2: Sudah teregister & selesai (Already Registered)
-      const regDoc = docs.find(d => d.needs_already_registered_popup === true);
-      if (regDoc) {
-        setItemData(regDoc);
-        setActiveModal('registered');
-        fetchHistory(regDoc.nfc_uid);
-        return;
-      }
-
-      // PRIORITAS 3: Scan 2 - OUT
-      const outDoc = docs.find(d => d.needs_spk === true && !d.needs_naming);
-      if (outDoc) {
-        setItemData(outDoc);
-        setActiveModal('scan2');
-        return;
-      }
-
-      if (!pendingAuthUid) {
-        setActiveModal(null);
-        setItemData(null);
+            if (claimed) {
+              const itemSnap = await getDocs(query(collection(db, 'barang'), where('nfc_uid', '==', scanData.uid)));
+              if (!itemSnap.empty) {
+                const itemDoc = itemSnap.docs[0];
+                const item = { id: itemDoc.id, ...itemDoc.data() };
+                setItemData(item);
+                if (item.lifecycle === 'COMPLETED' || item.is_completed) {
+                  setActiveModal('registered');
+                  fetchHistory(item.nfc_uid);
+                } else if (item.needs_spk || item.lifecycle === 'IN') {
+                  setActiveModal('scan2');
+                } else {
+                  setActiveModal('scan1');
+                }
+              }
+            }
+          } catch (err) {}
+        }
       }
     });
 
     return () => {
-      unsubscribe();
+      unsubActiveScan();
       unsubSettings();
     };
   }, [pendingAuthUid, activeModal]);

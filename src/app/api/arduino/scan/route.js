@@ -24,12 +24,22 @@ export async function POST(req) {
         last_scanned_uid: cleanUid,
         last_scanned_at: serverTimestamp()
       });
+      await setDoc(doc(db, 'system', 'active_scan'), {
+        uid: cleanUid,
+        claimed: false,
+        created_at: serverTimestamp()
+      });
     } catch (e) {
       try {
         await setDoc(doc(db, 'system', 'settings'), {
           last_scanned_uid: cleanUid,
           last_scanned_at: serverTimestamp()
         }, { merge: true });
+        await setDoc(doc(db, 'system', 'active_scan'), {
+          uid: cleanUid,
+          claimed: false,
+          created_at: serverTimestamp()
+        });
       } catch (err) {}
     }
 
