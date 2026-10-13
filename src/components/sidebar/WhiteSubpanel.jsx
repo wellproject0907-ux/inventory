@@ -79,6 +79,24 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
         </div>
       </div>
 
+      {/* Active Terminal Mode Toggle */}
+      <div className="border-t border-stone-100 pt-3 px-2 mb-3">
+        <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-3 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-stone-700">Active Terminal</p>
+            <p className="text-[10px] text-stone-400">Receive scan popups</p>
+          </div>
+          <input
+            type="checkbox"
+            defaultChecked={typeof window !== 'undefined' ? localStorage.getItem('active_terminal') !== 'false' : true}
+            onChange={(e) => {
+              localStorage.setItem('active_terminal', e.target.checked ? 'true' : 'false');
+            }}
+            className="w-4 h-4 text-blue-600 rounded accent-blue-600 cursor-pointer"
+          />
+        </div>
+      </div>
+
       {/* User Profile & Logout Button */}
       <div className="border-t border-stone-100 pt-4 px-2">
         <div className="flex items-center justify-between">
