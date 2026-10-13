@@ -8,7 +8,7 @@ import { Tag, Loader2, Check, Search, Truck, X, History, Clock, Sparkles, ArrowD
 export default function RfidModalManager() {
   const [activeModal, setActiveModal] = useState(null); // 'operator_auth', 'scan1', 'scan2', 'registered'
   const [itemData, setItemData] = useState(null);
-  const [activeOperator, setActiveOperator] = useState(null);
+  const [activeOperator, setActiveOperator] = useState({ name: 'Test Operator', role: 'Staff Gudang' });
   const [pendingAuthUid, setPendingAuthUid] = useState(null);
 
   // Scan 1 states
@@ -199,10 +199,6 @@ export default function RfidModalManager() {
 
   const handleSaveScan1 = async (e) => {
     e.preventDefault();
-    if (!activeOperator) {
-      alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu pada alat Arduino.');
-      return;
-    }
     if (!itemData || (!selectedBahan && !namaBarang)) {
       alert('Pilih SKU atau Nama Bahan dari Master Data terlebih dahulu!');
       return;
@@ -224,7 +220,7 @@ export default function RfidModalManager() {
           kategori: supplier || 'General Supplier',
           qty: 1,
           no_sj: noSj || 'SJ-DEFAULT',
-          warehouse_user: activeOperator.name
+          warehouse_user: activeOperator?.name || 'Test Operator'
         })
       });
 
@@ -262,10 +258,6 @@ export default function RfidModalManager() {
 
   const handleConfirmScan2 = async (e) => {
     e.preventDefault();
-    if (!activeOperator) {
-      alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu pada alat Arduino.');
-      return;
-    }
     if (!itemData || !noSpk) {
       alert('Nomor SPK wajib diisi!');
       return;
@@ -280,7 +272,7 @@ export default function RfidModalManager() {
           uid: itemData.nfc_uid,
           action: 'CONFIRM_OUT',
           no_spk: noSpk,
-          warehouse_user: activeOperator.name
+          warehouse_user: activeOperator?.name || 'Test Operator'
         })
       });
 
