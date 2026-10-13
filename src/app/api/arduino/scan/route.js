@@ -33,104 +33,211 @@ export async function POST(req) {
       } catch (err) {}
     }
 
-    // Resolve active operator user
-    let opUser = warehouse_user;
-    if (!opUser) {
-      try {
-        const sSnap = await getDoc(doc(db, 'system', 'settings'));
-        if (sSnap.exists()) {
-          opUser = sSnap.data().active_operator_name;
-        }
-      } catch (e) {}
+    const finalUser = warehouse_user || 'Test Operator';
+
+    // === FULL BYPASS OPERATOR AUTH FOR TESTING ===
+    const docRef = doc(db, 'barang', cleanUid);
+    const docSnap = await getDoc(docRef);
+
+    let currentMode = 'INVENTORY';
+    try {
+      const settingsSnap = await getDoc(doc(db, 'system', 'settings'));
+      if (settingsSnap.exists()) {
+        currentMode = settingsSnap.data().mode || 'INVENTORY';
+      }
+    } catch (e) {}
+
+    if ((currentMode === 'OPNAME' && (!action || action === 'LOG')) || action === 'AUDIT') {
+      if (!docSnap.exists()) {
+        return NextResponse.json({
+          success: false,
+          action: 'AUDIT_NOT_FOUND',
+          message: `Tag UID "${cleanUid}" is not registered in the inventory database (Stock Opname Mode).`
+        }, { status: 404 });
+      }
+
+      const itemData = docSnap.data();
+      return NextResponse.json({
+        success: true,
+        action: 'AUDIT_FOUND',
+        message: 'Item verified in Stock Opname Mode (Read-Only). No stock mutation.',
+        item: { id: cleanUid, ...itemData }
+      });
     }
-    const finalUser = opUser || 'Warehouse Admin';
 
-    // 1. Check if scanned card is an Authorized Operator Card
-    const operatorSnap = await getDoc(doc(db, 'operator', cleanUid));
-    if (operatorSnap.exists()) {
-      const opData = operatorSnap.data();
+    if (action === 'DISMISS_ALREADY_REGISTERED') {
+      if (docSnap.exists()) {
+        await updateDoc(docRef, { needs_already_registered_popup: false, locked_by_tab: null, updated_at: serverTimestamp() });
+      }
+      return NextResponse.json({ success: true, message: 'Dismissed' });
+    }
 
-      // Check if any item is waiting for operator authorization in system settings
-      try {
-        const settingsSnap = await getDoc(doc(db, 'system', 'settings'));
-        if (settingsSnap.exists() && settingsSnap.data().pending_item_uid) {
-          const pendingUid = settingsSnap.data().pending_item_uid;
-          const docRef = doc(db, 'barang', pendingUid);
-          const docSnap = await getDoc(docRef);
+    if (action === 'CONFIRM_OUT') {
+      if (!docSnap.exists()) {
+        return NextResponse.json({ success: false, message: 'Item tidak ditemukan' }, { status: 404 });
+      }
+      const itemData = docSnap.data();
 
-          if (!docSnap.exists()) {
-            // Create the item now for Scan 1 (Registrasi Barang Masuk)
-            const itemData = {
-              nfc_uid: pendingUid,
-              sku: `SKU-${pendingUid}`,
-              nama_barang: `Barang RFID (${pendingUid})`,
-              kategori: 'General Supplier',
-              no_sj: '',
-              no_spk: '',
-              stok: 1,
-              lifecycle: 'IN',
-              is_completed: false,
-              needs_naming: true,
-              needs_spk: false,
-              needs_already_registered_popup: false,
-              warehouse_user: opData.nama_operator,
-              scan_in_at: serverTimestamp(),
-              scan_out_at: null,
-              created_at: serverTimestamp(),
-              updated_at: serverTimestamp()
-            };
-            await setDoc(docRef, itemData);
-          } else {
-            const itemData = docSnap.data();
-            const nextState = itemData.lifecycle === 'IN' && itemData.sku && !itemData.needs_naming
-              ? { needs_spk: true, warehouse_user: opData.nama_operator }
-              : { needs_naming: true, warehouse_user: opData.nama_operator };
-            await updateDoc(docRef, nextState);
-          }
+      if (no_spk === 'CANCELLED') {
+        await updateDoc(docRef, { needs_spk: false, locked_by_tab: null, updated_at: serverTimestamp() });
+        return NextResponse.json({ success: true, message: 'Scan OUT dibatalkan' });
+      }
 
-          // Clear pending item UID & set active operator
-          await updateDoc(doc(db, 'system', 'settings'), {
-            pending_item_uid: null,
-            active_operator_name: opData.nama_operator,
-            active_operator_role: opData.role || 'Staff Gudang',
-            last_scanned_uid: cleanUid,
-            last_scanned_at: serverTimestamp()
-          });
-        }
-      } catch (e) {
-        console.error('Error unlocking pending auth item:', e);
+      await updateDoc(docRef, {
+        stok: 0,
+        lifecycle: 'COMPLETED',
+        is_completed: true,
+        needs_spk: false,
+        no_spk: no_spk || 'SPK-DEFAULT',
+        warehouse_user: finalUser,
+        scan_out_at: serverTimestamp(),
+        locked_by_tab: null,
+        updated_at: serverTimestamp()
+      });
+
+      await addDoc(collection(db, 'riwayat_transaksi'), {
+        nfc_uid: cleanUid,
+        sku: itemData.sku || '',
+        nama_barang: itemData.nama_barang || '',
+        tipe: 'OUT',
+        jumlah: 1,
+        warehouse_user: finalUser,
+        no_sj: itemData.no_sj || '',
+        no_spk: no_spk || 'SPK-DEFAULT',
+        keterangan: `Scan 2: Stok OUT (No. SPK: ${no_spk || 'N/A'}) - Selesai`,
+        timestamp: serverTimestamp()
+      });
+
+      return NextResponse.json({
+        success: true,
+        action: 'OUT',
+        message: 'Konfirmasi Stock OUT berhasil & No. SPK tersimpan',
+        item: { id: cleanUid, ...itemData, stok: 0, lifecycle: 'COMPLETED' }
+      });
+    }
+
+    let itemName = nama_barang || `Barang RFID (${cleanUid})`;
+    let itemKategori = kategori || 'General Supplier';
+    let itemSku = sku || `SKU-${cleanUid}`;
+    let itemNoSj = no_sj || '';
+
+    if (!docSnap.exists()) {
+      const itemData = {
+        nfc_uid: cleanUid,
+        sku: itemSku,
+        nama_barang: itemName,
+        kategori: itemKategori,
+        no_sj: itemNoSj,
+        no_spk: '',
+        stok: 1,
+        lifecycle: 'IN',
+        is_completed: false,
+        needs_operator_auth: false,
+        needs_naming: !sku,
+        needs_spk: false,
+        needs_already_registered_popup: false,
+        warehouse_user: finalUser,
+        scan_in_at: serverTimestamp(),
+        scan_out_at: null,
+        locked_by_tab: null,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
+      };
+
+      await setDoc(docRef, itemData);
+
+      if (sku) {
+        await addDoc(collection(db, 'riwayat_transaksi'), {
+          nfc_uid: cleanUid,
+          sku: itemSku,
+          nama_barang: itemName,
+          tipe: 'IN',
+          jumlah: 1,
+          warehouse_user: finalUser,
+          no_sj: itemNoSj,
+          keterangan: `Scan 1: Stok IN (No. SJ: ${itemNoSj || 'N/A'})`,
+          timestamp: serverTimestamp()
+        });
       }
 
       return NextResponse.json({
         success: true,
-        action: 'OPERATOR_CARD',
-        message: `Operator authorized: ${opData.nama_operator}`,
-        operator: { id: cleanUid, ...opData }
+        action: 'IN',
+        needs_naming: !sku,
+        message: 'Scan 1 Berhasil: Stok IN & No. SJ tersimpan',
+        item: { id: cleanUid, sku: itemSku, nama_barang: itemName, stok: 1, lifecycle: 'IN' }
       });
-    }
 
-    // 2. If it is NOT an operator card, it's an item card. Do NOT create in 'barang' yet! Set pending_item_uid in settings.
-    try {
-      await updateDoc(doc(db, 'system', 'settings'), {
-        pending_item_uid: cleanUid,
-        active_operator_name: null, // Clear active operator to force fresh scan
-        last_scanned_uid: cleanUid,
-        last_scanned_at: serverTimestamp()
-      });
-    } catch (e) {
-      await setDoc(doc(db, 'system', 'settings'), {
-        pending_item_uid: cleanUid,
-        active_operator_name: null,
-        last_scanned_uid: cleanUid,
-        last_scanned_at: serverTimestamp()
-      }, { merge: true });
-    }
+    } else {
+      const itemData = docSnap.data();
 
-    return NextResponse.json({
-      success: true,
-      action: 'PENDING_OPERATOR_AUTH',
-      message: '⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu.'
-    });
+      if (sku || nama_barang) {
+        await updateDoc(docRef, {
+          sku: sku || itemData.sku,
+          nama_barang: nama_barang || itemData.nama_barang,
+          kategori: kategori || itemData.kategori || 'General Supplier',
+          no_sj: no_sj || itemData.no_sj || '',
+          warehouse_user: finalUser,
+          needs_operator_auth: false,
+          needs_naming: false,
+          locked_by_tab: null,
+          updated_at: serverTimestamp()
+        });
+
+        if (no_sj) {
+          await addDoc(collection(db, 'riwayat_transaksi'), {
+            nfc_uid: cleanUid,
+            sku: sku || itemData.sku,
+            nama_barang: nama_barang || itemData.nama_barang,
+            tipe: 'IN',
+            jumlah: 1,
+            warehouse_user: finalUser,
+            no_sj: no_sj,
+            keterangan: `Scan 1 Registered (No. SJ: ${no_sj})`,
+            timestamp: serverTimestamp()
+          });
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Detail SKU, Supplier, dan No. SJ berhasil diperbarui',
+          item: { id: cleanUid, sku, nama_barang, kategori, no_sj }
+        });
+      }
+
+      if (itemData.is_completed || itemData.lifecycle === 'COMPLETED') {
+        await updateDoc(docRef, {
+          needs_already_registered_popup: true,
+          locked_by_tab: null,
+          updated_at: serverTimestamp()
+        });
+
+        return NextResponse.json({
+          success: false,
+          error: 'ALREADY_REGISTERED',
+          message: `Ditolak: Kartu sudah teregister (Siklus In & Out telah selesai).`
+        }, { status: 400 });
+      }
+
+      if (itemData.lifecycle === 'IN') {
+        await updateDoc(docRef, {
+          needs_spk: true,
+          needs_operator_auth: false,
+          locked_by_tab: null,
+          updated_at: serverTimestamp()
+        });
+
+        return NextResponse.json({
+          success: true,
+          action: 'OUT',
+          needs_spk: true,
+          message: 'Scan 2 terdeteksi: Menunggu konfirmasi No. SPK',
+          item: itemData
+        });
+      }
+
+      return NextResponse.json({ success: true, message: 'Tag scanned' });
+    }
 
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
