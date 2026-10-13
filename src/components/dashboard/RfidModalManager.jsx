@@ -75,48 +75,64 @@ export default function RfidModalManager() {
       }
     });
 
-    // Listen to system/active_scan with atomic transaction claiming (Zero Mirroring across PCs)
-    const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), async (docSnap) => {
-      if (docSnap.exists()) {
-        const scanData = docSnap.data();
-        if (scanData && !scanData.claimed && scanData.uid) {
-          try {
-            let claimed = false;
-            await runTransaction(db, async (transaction) => {
-              const currentDoc = await transaction.get(doc(db, 'system', 'active_scan'));
-              if (!currentDoc.exists() || currentDoc.data().claimed || currentDoc.data().uid !== scanData.uid) {
-                return;
-              }
-              transaction.update(doc(db, 'system', 'active_scan'), {
-                claimed: true,
-                claimed_by: tabIdRef.current
-              });
-              claimed = true;
-            });
+    // Listen to 'barang' collection in real-time with sessionStorage deduping (Zero database write overhead, 0% quota 429 risk)
+    const unsubscribe = onSnapshot(collection(db, 'barang'), (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-            if (claimed) {
-              const itemSnap = await getDocs(query(collection(db, 'barang'), where('nfc_uid', '==', scanData.uid)));
-              if (!itemSnap.empty) {
-                const itemDoc = itemSnap.docs[0];
-                const item = { id: itemDoc.id, ...itemDoc.data() };
-                setItemData(item);
-                if (item.lifecycle === 'COMPLETED' || item.is_completed) {
-                  setActiveModal('registered');
-                  fetchHistory(item.nfc_uid);
-                } else if (item.needs_spk || item.lifecycle === 'IN') {
-                  setActiveModal('scan2');
-                } else {
-                  setActiveModal('scan1');
-                }
-              }
-            }
-          } catch (err) {}
-        }
+      // PRIORITAS 1: Scan 1 - IN
+      const inDoc = docs.find(d => {
+        if (d.needs_naming !== true) return false;
+        const key = 'handled_in_' + d.nfc_uid;
+        if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
+        return true;
+      });
+
+      if (inDoc) {
+        if (typeof window !== 'undefined') sessionStorage.setItem('handled_in_' + inDoc.nfc_uid, 'true');
+        setItemData(inDoc);
+        setActiveModal('scan1');
+        return;
+      }
+
+      // PRIORITAS 2: Already Registered
+      const regDoc = docs.find(d => {
+        if (d.needs_already_registered_popup !== true) return false;
+        const key = 'handled_reg_' + d.nfc_uid;
+        if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
+        return true;
+      });
+
+      if (regDoc) {
+        if (typeof window !== 'undefined') sessionStorage.setItem('handled_reg_' + regDoc.nfc_uid, 'true');
+        setItemData(regDoc);
+        setActiveModal('registered');
+        fetchHistory(regDoc.nfc_uid);
+        return;
+      }
+
+      // PRIORITAS 3: Scan 2 - OUT
+      const outDoc = docs.find(d => {
+        if (!(d.needs_spk === true && !d.needs_naming)) return false;
+        const key = 'handled_out_' + d.nfc_uid;
+        if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
+        return true;
+      });
+
+      if (outDoc) {
+        if (typeof window !== 'undefined') sessionStorage.setItem('handled_out_' + outDoc.nfc_uid, 'true');
+        setItemData(outDoc);
+        setActiveModal('scan2');
+        return;
+      }
+
+      if (!pendingAuthUid) {
+        setActiveModal(null);
+        setItemData(null);
       }
     });
 
     return () => {
-      unsubActiveScan();
+      unsubscribe();
       unsubSettings();
     };
   }, [pendingAuthUid, activeModal]);
