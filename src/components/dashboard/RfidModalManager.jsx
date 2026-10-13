@@ -83,30 +83,16 @@ export default function RfidModalManager() {
         const docs = await res.json();
 
         // PRIORITAS 1: Scan 1 - IN
-        const inDoc = docs.find(d => {
-          if (d.needs_naming !== true) return false;
-          const key = 'handled_in_' + d.nfc_uid;
-          if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
-          return true;
-        });
-
-        if (inDoc) {
-          if (typeof window !== 'undefined') sessionStorage.setItem('handled_in_' + inDoc.nfc_uid, 'true');
+        const inDoc = docs.find(d => d.needs_naming === true);
+        if (inDoc && activeModal !== 'scan1') {
           setItemData(inDoc);
           setActiveModal('scan1');
           return;
         }
 
         // PRIORITAS 2: Already Registered
-        const regDoc = docs.find(d => {
-          if (d.needs_already_registered_popup !== true) return false;
-          const key = 'handled_reg_' + d.nfc_uid;
-          if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
-          return true;
-        });
-
-        if (regDoc) {
-          if (typeof window !== 'undefined') sessionStorage.setItem('handled_reg_' + regDoc.nfc_uid, 'true');
+        const regDoc = docs.find(d => d.needs_already_registered_popup === true);
+        if (regDoc && activeModal !== 'registered') {
           setItemData(regDoc);
           setActiveModal('registered');
           fetchHistory(regDoc.nfc_uid);
@@ -114,15 +100,8 @@ export default function RfidModalManager() {
         }
 
         // PRIORITAS 3: Scan 2 - OUT
-        const outDoc = docs.find(d => {
-          if (!(d.needs_spk === true && !d.needs_naming)) return false;
-          const key = 'handled_out_' + d.nfc_uid;
-          if (typeof window !== 'undefined' && sessionStorage.getItem(key)) return false;
-          return true;
-        });
-
-        if (outDoc) {
-          if (typeof window !== 'undefined') sessionStorage.setItem('handled_out_' + outDoc.nfc_uid, 'true');
+        const outDoc = docs.find(d => d.needs_spk === true && !d.needs_naming);
+        if (outDoc && activeModal !== 'scan2') {
           setItemData(outDoc);
           setActiveModal('scan2');
           return;
