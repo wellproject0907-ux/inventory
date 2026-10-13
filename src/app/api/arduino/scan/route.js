@@ -11,7 +11,12 @@ export async function POST(req) {
       return NextResponse.json({ error: 'UID is required' }, { status: 400 });
     }
 
-    const cleanUid = String(uid).trim();
+    const rawUid = String(uid).trim();
+    const cleanUid = rawUid.replace(/\s+/g, '').toUpperCase();
+
+    if (!cleanUid || !/^[0-9A-Fa-f]{4,16}$/.test(cleanUid)) {
+      return NextResponse.json({ error: 'Invalid RFID UID format' }, { status: 400 });
+    }
 
     // Always update last_scanned_uid for any physical Arduino reader scan
     try {
