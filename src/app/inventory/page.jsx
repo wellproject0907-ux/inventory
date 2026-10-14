@@ -5,6 +5,7 @@ import { Scan, Radio, Plus, Layers, Search, CheckCircle2, AlertTriangle, Box, Tr
 import { CapacitorNfc } from '@capgo/capacitor-nfc';
 import { db } from '@/services/firebase/config';
 import { collection, getDocs, doc, setDoc, getDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { subscribeToInventory } from '@/services/firebase/inventoryService';
 
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -32,27 +33,23 @@ export default function InventoryPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  const fetchItems = async () => {
-    try {
-      setLoading(true);
-      const q = query(collection(db, 'barang'), orderBy('created_at', 'desc'));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setItems(data);
-    } catch (err) {
-      console.error('Failed to fetch items from Firestore:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchItems();
+    const unsubscribe = subscribeToInventory((fetchedItems) => {
+      setItems(fetchedItems);
+      setLoading(false);
+    });
+
     fetch('/api/system-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'INVENTORY' })
     }).catch(err => console.log('Failed to set mode:', err));
+
+    return () => {
+      if (unsubscribe && typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const parseTagUid = (event) => {
@@ -213,7 +210,6 @@ export default function InventoryPage() {
       setMessage(`✅ Scan IN Successful! Item "${namaBarang}" registered with stock 1 (Tag locked for this 1 item).`);
       setShowAddModal(false);
       setScannedUid('');
-      fetchItems();
     } catch (err) {
       setSubmitting(false);
       alert('Failed to save Scan IN: ' + err.message);
@@ -258,7 +254,6 @@ export default function InventoryPage() {
       setShowOutModal(false);
       setScannedUid('');
       setExistingItem(null);
-      fetchItems();
     } catch (err) {
       setSubmitting(false);
       alert('Failed to process Scan OUT: ' + err.message);
@@ -278,7 +273,6 @@ export default function InventoryPage() {
         }
 
         setMessage(`🗑️ Successfully deleted "${nama}". NTAG tag is now empty & ready for reuse.`);
-        fetchItems();
       } catch (err) {
         alert('Failed to delete item: ' + err.message);
       }
