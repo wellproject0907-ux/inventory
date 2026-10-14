@@ -121,6 +121,15 @@ export default function StockOpnamePage() {
     }
   };
 
+  const handleRemoveFromAuditSession = (uid) => {
+    const cleanUid = String(uid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    setAuditScannedUids(prev => {
+      const next = new Set(prev);
+      next.delete(cleanUid);
+      return next;
+    });
+  };
+
   const filteredItems = items.filter(item =>
     (item.sku && item.sku.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (item.nfc_uid && item.nfc_uid.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -467,6 +476,16 @@ export default function StockOpnamePage() {
                                         <span className="text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1 rounded-full shrink-0 flex items-center gap-1">
                                           <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
                                         </span>
+                                        {isScannedInAudit && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveFromAuditSession(item.nfc_uid || item.id)}
+                                            className="bg-stone-100 hover:bg-rose-50 text-stone-600 hover:text-rose-600 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer inline-flex items-center gap-1 shrink-0 border border-stone-200"
+                                            title="Batalkan hasil scan Opname untuk UID ini (hanya menghapus hasil scan fisik Opname, tidak menghapus barang di database)"
+                                          >
+                                            <RotateCcw size={12} /> Hapus Hasil Scan Opname
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   );
