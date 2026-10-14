@@ -146,7 +146,7 @@ export default function OutboundPage() {
       'Material Name': item.nama_barang || '-',
       'SPK No.': item.no_spk || '-',
       'Outbound Time': formatTimestamp(item.scan_out_at),
-      Status: 'CHECKED OUT (COMPLETED)',
+      Status: lang === 'id' ? 'TERPAKAI' : 'USED',
       'Outbound Operator': item.warehouse_user_out || item.warehouse_user || 'Warehouse Admin'
     }));
 
@@ -278,6 +278,9 @@ export default function OutboundPage() {
                                         <code className="font-mono font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
                                           SKU: {item.sku || '-'} | UID: {item.nfc_uid}
                                         </code>
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                          {lang === 'id' ? 'TERPAKAI' : 'USED'}
+                                        </span>
                                       </div>
 
                                       <p className="text-[11px] text-stone-600 font-mono">

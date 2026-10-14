@@ -38,18 +38,26 @@ export default function RfidModalManager() {
 
   const checkIsOperatorCard = async (cleanUid) => {
     try {
-      const opDocRef = doc(db, 'operator', cleanUid);
+      const targetClean = String(cleanUid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (!targetClean) return null;
+
+      // 1. Direct doc ID lookup
+      const opDocRef = doc(db, 'operator', targetClean);
       const opDocSnap = await getDoc(opDocRef);
       if (opDocSnap.exists()) return opDocSnap.data();
 
-      const qOp = query(collection(db, 'operator'), where('nfc_uid', '==', cleanUid));
+      // 2. Query 'operator' collection where nfc_uid == targetClean
+      const qOp = query(collection(db, 'operator'), where('nfc_uid', '==', targetClean));
       const qOpSnap = await getDocs(qOp);
       if (!qOpSnap.empty) return qOpSnap.docs[0].data();
 
+      // 3. Scan all operator documents (strip colons, spaces, case-insensitive)
       const allOpSnap = await getDocs(collection(db, 'operator'));
       const foundOp = allOpSnap.docs.find(d => {
-        const storedUid = String(d.data().nfc_uid || d.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        return storedUid === cleanUid;
+        const data = d.data();
+        const storedUid1 = String(data.nfc_uid || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        const storedUid2 = String(d.id || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        return storedUid1 === targetClean || storedUid2 === targetClean;
       });
       if (foundOp) return foundOp.data();
     } catch (e) {
@@ -78,6 +86,12 @@ export default function RfidModalManager() {
           active_operator_role: opRole,
           active_operator_uid: cleanUid,
           updated_at: serverTimestamp()
+        });
+        await setDoc(doc(db, 'system', 'active_scan'), {
+          uid: cleanUid,
+          claimed: true,
+          needs_naming: false,
+          created_at: serverTimestamp()
         });
       } catch (err) {}
 
