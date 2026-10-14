@@ -4,8 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { db } from '@/services/firebase/config';
 import { collection, query, where, onSnapshot, getDocs, getDoc, orderBy, limit, deleteDoc, doc, setDoc, updateDoc, addDoc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { Tag, Loader2, Check, Search, Truck, X, History, Clock, Sparkles, ArrowDownLeft, FileText, AlertCircle, Users, User } from 'lucide-react';
+import { useTranslation } from '@/services/languageService';
 
 export default function RfidModalManager() {
+  const { lang, t } = useTranslation();
   const tabIdRef = useRef(typeof window !== 'undefined' ? Math.random().toString(36).substring(2, 9) : 'tab');
   const [activeModal, setActiveModal] = useState(null); // 'operator_auth', 'scan1', 'scan2', 'registered'
   const [itemData, setItemData] = useState(null);
