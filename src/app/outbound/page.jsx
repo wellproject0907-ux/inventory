@@ -188,13 +188,12 @@ export default function OutboundPage() {
                 <th className="py-3.5 px-6">{lang === 'id' ? 'Tanggal Outbound' : 'Outbound Date'}</th>
                 <th className="py-3.5 px-6 text-center">{t('totalQtyOut')}</th>
                 <th className="py-3.5 px-6">{lang === 'id' ? 'Operator Scan' : 'Scan Operator'}</th>
-                <th className="py-3.5 px-6 text-right">{t('action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan="4" className="text-center py-12 text-stone-400">Loading outbound items...</td>
+                  <td colSpan="3" className="text-center py-12 text-stone-400">Loading outbound items...</td>
                 </tr>
               ) : groupedList.length > 0 ? (
                 groupedList.map((group) => {
@@ -222,21 +221,12 @@ export default function OutboundPage() {
                             <User size={12} className="text-stone-500" /> {operators}
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleExpand(group.sortKey); }}
-                            className="bg-stone-100 hover:bg-stone-200 text-stone-700 px-3 py-1.5 rounded-xl font-semibold text-xs transition inline-flex items-center gap-1 ml-auto cursor-pointer"
-                          >
-                            {isExpanded ? t('hideUIDs') : t('viewUIDs')} <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                          </button>
-                        </td>
                       </tr>
 
                       {/* Accordion Dropdown Breakdown (Individual Outbound Items on This Date) */}
                       {isExpanded && (
                         <tr className="bg-stone-50/80 animate-fade-in">
-                          <td colSpan="4" className="p-4">
+                          <td colSpan="3" className="p-4">
                             <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3 shadow-inner">
                               <h4 className="text-[11px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-2">
                                 <Layers size={14} className="text-amber-600" /> Items Checked Out On {group.displayDate} ({group.items.length} Total)
@@ -296,7 +286,7 @@ export default function OutboundPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="4" className="text-center py-12 text-stone-400">
+                  <td colSpan="3" className="text-center py-12 text-stone-400">
                     No outbound items yet. Perform Scan OUT on an active item to see it here.
                   </td>
                 </tr>
