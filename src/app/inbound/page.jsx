@@ -17,7 +17,9 @@ export default function InboundPage() {
 
   useEffect(() => {
     const unsubscribe = subscribeToInventory((fetchedItems) => {
-      setItems(fetchedItems);
+      // Strict filter: ONLY active inbound items currently in the warehouse
+      const activeInboundItems = fetchedItems.filter(item => !item.is_completed && item.lifecycle !== 'COMPLETED' && Number(item.stok ?? 1) > 0);
+      setItems(activeInboundItems);
       setLoading(false);
     });
 
@@ -134,15 +136,9 @@ export default function InboundPage() {
                         </span>
                       </td>
                       <td className="py-4 px-6 whitespace-nowrap">
-                        {isDepleted ? (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
-                            <AlertTriangle size={12} /> {t('completedOut')}
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 inline-flex items-center gap-1">
-                            {t('activeInWarehouse')}
-                          </span>
-                        )}
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 inline-flex items-center gap-1">
+                          {t('activeInWarehouse')}
+                        </span>
                       </td>
                       <td className="py-4 px-6 text-right whitespace-nowrap">
                         <button
