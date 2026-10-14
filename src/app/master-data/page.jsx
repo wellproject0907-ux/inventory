@@ -29,6 +29,14 @@ export default function MasterDataPage() {
   const [opRole, setOpRole] = useState('Staff Gudang');
   const [opSubmitting, setOpSubmitting] = useState(false);
 
+  // Add Supplier Modal state
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [supNama, setSupNama] = useState('');
+  const [supPic, setSupPic] = useState('');
+  const [supTelp, setSupTelp] = useState('');
+  const [supAlamat, setSupAlamat] = useState('');
+  const [supSubmitting, setSupSubmitting] = useState(false);
+
   // Card Scan Modal state (for Arduino hardware reader / Web NFC)
   const [showCardScanModal, setShowCardScanModal] = useState(false);
   const [tempCardUid, setTempCardUid] = useState('');
@@ -183,9 +191,34 @@ export default function MasterDataPage() {
       setOpUid('');
       setOpRole('Staff Gudang');
       fetchData();
+  const handleSupplierSubmit = async (e) => {
+    e.preventDefault();
+    if (!supNama) {
+      alert('Supplier Name is required!');
+      return;
+    }
+
+    try {
+      setSupSubmitting(true);
+      const supId = String(supNama).toLowerCase().replace(/[^a-z0-9]/g, '_');
+      await setDoc(doc(db, 'suplier', supId), {
+        nama_suplier: supNama.trim(),
+        pic: supPic.trim(),
+        telepon: supTelp.trim(),
+        alamat: supAlamat.trim(),
+        updated_at: serverTimestamp()
+      }, { merge: true });
+
+      setSupSubmitting(false);
+      setShowSupplierModal(false);
+      setSupNama('');
+      setSupPic('');
+      setSupTelp('');
+      setSupAlamat('');
+      fetchData();
     } catch (err) {
-      setOpSubmitting(false);
-      alert('Failed to save operator data.');
+      setSupSubmitting(false);
+      alert('Failed to save supplier data.');
     }
   };
 
@@ -346,6 +379,14 @@ export default function MasterDataPage() {
               <Scan size={16} /> Scan Card
             </button>
           )}
+          {activeTab === 'suplier' && (
+            <button
+              onClick={() => setShowSupplierModal(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm"
+            >
+              <Plus size={16} /> Add Supplier
+            </button>
+          )}
         </div>
       </div>
 
@@ -454,6 +495,9 @@ export default function MasterDataPage() {
                 <thead className="sticky top-0 z-20 bg-stone-50 shadow-xs">
                   <tr className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
                     <th className="p-3.5">Supplier Name</th>
+                    <th className="p-3.5">Contact Person (PIC)</th>
+                    <th className="p-3.5">Phone / WhatsApp</th>
+                    <th className="p-3.5">Address</th>
                     <th className="p-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -461,6 +505,9 @@ export default function MasterDataPage() {
                   {filteredSuplier.map((item) => (
                     <tr key={item.id} className="hover:bg-stone-50/50 transition">
                       <td className="p-3.5 font-bold text-stone-900">{item.nama_suplier || item.id}</td>
+                      <td className="p-3.5 text-stone-700">{item.pic || '-'}</td>
+                      <td className="p-3.5 font-mono text-blue-600">{item.telepon || '-'}</td>
+                      <td className="p-3.5 text-stone-600">{item.alamat || '-'}</td>
                       <td className="p-3.5 text-right">
                         <button
                           onClick={() => handleDelete('suplier', item.id)}
@@ -654,7 +701,7 @@ export default function MasterDataPage() {
                   onClick={() => setShowOperatorModal(false)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition cursor-pointer"
                 >
-                  Cancel: Confirm modal settings.
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -662,6 +709,87 @@ export default function MasterDataPage() {
                   className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   {opSubmitting ? 'Saving...' : 'Save Operator'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Supplier Modal */}
+      {showSupplierModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-stone-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <h3 className="text-base font-bold text-stone-900">Add New Supplier</h3>
+              <button
+                onClick={() => setShowSupplierModal(false)}
+                className="text-stone-400 hover:text-stone-700 p-1.5 rounded-lg hover:bg-stone-100 transition cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSupplierSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Supplier Name / Company:</label>
+                <input
+                  type="text"
+                  value={supNama}
+                  onChange={(e) => setSupNama(e.target.value)}
+                  placeholder="e.g. PT Mitra Sejahtera"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Contact Person (PIC):</label>
+                <input
+                  type="text"
+                  value={supPic}
+                  onChange={(e) => setSupPic(e.target.value)}
+                  placeholder="e.g. Bpk. Andi"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Phone / WhatsApp:</label>
+                <input
+                  type="text"
+                  value={supTelp}
+                  onChange={(e) => setSupTelp(e.target.value)}
+                  placeholder="e.g. 08123456789"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Address:</label>
+                <textarea
+                  value={supAlamat}
+                  onChange={(e) => setSupAlamat(e.target.value)}
+                  placeholder="Supplier office or warehouse address..."
+                  rows={2}
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSupplierModal(false)}
+                  className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={supSubmitting}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {supSubmitting ? 'Saving...' : 'Save Supplier'}
                 </button>
               </div>
             </form>
