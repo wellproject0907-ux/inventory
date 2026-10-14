@@ -122,6 +122,7 @@ export async function POST(req) {
         needs_spk: false,
         no_spk: no_spk || 'SPK-DEFAULT',
         warehouse_user: finalUser,
+        warehouse_user_out: finalUser,
         scan_out_at: serverTimestamp(),
         locked_by_tab: null,
         updated_at: serverTimestamp()
@@ -190,6 +191,8 @@ export async function POST(req) {
         needs_spk: false,
         needs_already_registered_popup: false,
         warehouse_user: finalUser,
+        warehouse_user_in: finalUser,
+        warehouse_user_out: null,
         scan_in_at: serverTimestamp(),
         scan_out_at: null,
         locked_by_tab: null,

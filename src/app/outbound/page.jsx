@@ -255,10 +255,13 @@ export default function OutboundPage() {
                                       </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex items-center gap-1 text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1.5 rounded-full shrink-0">
-                                        <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
-                                      </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-emerald-800 font-semibold text-[11px] bg-emerald-50 px-2.5 py-1 rounded-full shrink-0 flex items-center gap-1 border border-emerald-200">
+                                        <User size={12} className="text-emerald-600" /> In: {item.warehouse_user_in || item.warehouse_user || 'Warehouse Admin'}
+                                      </span>
+                                      <span className="text-amber-800 font-semibold text-[11px] bg-amber-50 px-2.5 py-1 rounded-full shrink-0 flex items-center gap-1 border border-amber-200">
+                                        <User size={12} className="text-amber-600" /> Out: {item.warehouse_user_out || item.warehouse_user || 'Warehouse Admin'}
+                                      </span>
                                       <button
                                         onClick={() => handleDeleteItem(item.id, item.nama_barang, item.nfc_uid)}
                                         className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition cursor-pointer border border-rose-100 shadow-2xs shrink-0"
