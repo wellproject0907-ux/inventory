@@ -3,22 +3,13 @@ let activePort = null;
 let activeReader = null;
 let isReading = false;
 
-export async function connectWebSerial(onScanCallback, onErrorCallback) {
-  if (typeof window === 'undefined' || !('serial' in navigator)) {
-    if (onErrorCallback) onErrorCallback('Web Serial API is not supported in this browser. Please use Google Chrome or Microsoft Edge.');
-    return false;
-  }
-
+async function startReadingStream(port, onScanCallback, onErrorCallback) {
   try {
-    // Request COM port permission from user
-    activePort = await navigator.serial.requestPort();
-    await activePort.open({ baudRate: 9600 });
-
+    if (!port.readable) return false;
     isReading = true;
 
-    // Start reading line by line from USB Serial port
     const textDecoder = new TextDecoderStream();
-    const readableStreamClosed = activePort.readable.pipeTo(textDecoder.writable);
+    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
     const reader = textDecoder.readable.getReader();
     activeReader = reader;
 
@@ -52,10 +43,47 @@ export async function connectWebSerial(onScanCallback, onErrorCallback) {
 
     return true;
   } catch (err) {
+    console.error('Error starting stream:', err);
+    return false;
+  }
+}
+
+export async function connectWebSerial(onScanCallback, onErrorCallback) {
+  if (typeof window === 'undefined' || !('serial' in navigator)) {
+    if (onErrorCallback) onErrorCallback('Web Serial API is not supported in this browser. Please use Google Chrome or Microsoft Edge.');
+    return false;
+  }
+
+  try {
+    // Request COM port permission from user
+    activePort = await navigator.serial.requestPort();
+    await activePort.open({ baudRate: 9600 });
+    return await startReadingStream(activePort, onScanCallback, onErrorCallback);
+  } catch (err) {
     console.error('Web Serial connect error:', err);
     if (onErrorCallback) onErrorCallback(err.message);
     return false;
   }
+}
+
+export async function autoConnectWebSerial(onScanCallback, onErrorCallback) {
+  if (typeof window === 'undefined' || !('serial' in navigator)) return false;
+
+  try {
+    const existingPorts = await navigator.serial.getPorts();
+    if (existingPorts && existingPorts.length > 0) {
+      activePort = existingPorts[0];
+      try {
+        await activePort.open({ baudRate: 9600 });
+      } catch (e) {
+        // Port might already be open
+      }
+      return await startReadingStream(activePort, onScanCallback, onErrorCallback);
+    }
+  } catch (err) {
+    console.log('Auto connect Web Serial error:', err);
+  }
+  return false;
 }
 
 export async function disconnectWebSerial() {

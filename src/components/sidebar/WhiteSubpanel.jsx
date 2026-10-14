@@ -19,7 +19,7 @@ import {
   Usb,
   Cable
 } from 'lucide-react';
-import { connectWebSerial } from '@/services/rfid/webSerialDriver';
+import { connectWebSerial, autoConnectWebSerial } from '@/services/rfid/webSerialDriver';
 
 export default function WhiteSubpanel({ isCollapsed, onToggle }) {
   const pathname = usePathname();
@@ -30,6 +30,17 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('rfid_input_mode') || 'web_serial';
       setRfidMode(savedMode);
+
+      // Try auto-connecting to previously authorized USB Serial port without showing pop-up
+      if (savedMode === 'web_serial') {
+        autoConnectWebSerial((uid) => {
+          if (typeof window !== 'undefined' && window.triggerDirectScanUid) {
+            window.triggerDirectScanUid(uid);
+          }
+        }).then((connected) => {
+          if (connected) setUsbConnected(true);
+        });
+      }
     }
   }, []);
 
