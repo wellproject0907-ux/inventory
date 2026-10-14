@@ -101,25 +101,31 @@ export default function RfidModalManager() {
 
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // PRIORITAS 2: Already Registered
+      // PRIORITAS 2: Already Registered - Only allowed on /outbound page
       const regDoc = docs.find(d => d.needs_already_registered_popup === true);
       if (regDoc) {
-        if (activeModal !== 'registered') {
-          setItemData(regDoc);
-          setActiveModal('registered');
-          fetchHistory(regDoc.nfc_uid);
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (currentPath === '/outbound') {
+          if (activeModal !== 'registered') {
+            setItemData(regDoc);
+            setActiveModal('registered');
+            fetchHistory(regDoc.nfc_uid);
+          }
+          return;
         }
-        return;
       }
 
-      // PRIORITAS 3: Scan 2 - OUT (needs_spk)
+      // PRIORITAS 3: Scan 2 - OUT (needs_spk) - Only allowed on /outbound page
       const outDoc = docs.find(d => d.needs_spk === true);
       if (outDoc) {
-        if (activeModal !== 'scan2') {
-          setItemData(outDoc);
-          setActiveModal('scan2');
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (currentPath === '/outbound') {
+          if (activeModal !== 'scan2') {
+            setItemData(outDoc);
+            setActiveModal('scan2');
+          }
+          return;
         }
-        return;
       }
     });
 

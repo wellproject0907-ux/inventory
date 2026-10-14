@@ -53,6 +53,8 @@ export default function StockOpnamePage() {
     return () => unsubscribe();
   }, []);
 
+  const [highlightedUid, setHighlightedUid] = useState(null);
+
   const handleExternalScan = (uid) => {
     const queryStr = String(uid).trim().toLowerCase();
     const found = items.find(item =>
@@ -64,6 +66,10 @@ export default function StockOpnamePage() {
 
     if (found) {
       setScannedResult({ found: true, data: found });
+      setHighlightedUid(found.nfc_uid);
+      const groupKey = (found.nama_barang || 'Unnamed Material').trim().toLowerCase();
+      setExpandedKeys(prev => ({ ...prev, [groupKey]: true }));
+      setTimeout(() => setHighlightedUid(null), 4000);
     } else {
       setScannedResult({ found: false, query: uid });
     }
@@ -362,8 +368,11 @@ export default function StockOpnamePage() {
                               <div className="divide-y divide-stone-100 border border-stone-100 rounded-lg overflow-hidden">
                                 {group.items.map((item) => {
                                   const isOut = item.is_completed || item.lifecycle === 'COMPLETED';
+                                  const isHighlighted = item.nfc_uid === highlightedUid;
                                   return (
-                                    <div key={item.id} className="p-3 hover:bg-stone-50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                    <div key={item.id} className={`p-3 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+                                      isHighlighted ? 'bg-amber-100 border-2 border-amber-500 animate-pulse' : 'bg-stone-50/50 hover:bg-stone-50'
+                                    }`}>
                                       <div className="space-y-1">
                                         <div className="flex items-center gap-2">
                                           <code className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">UID: {item.nfc_uid}</code>
