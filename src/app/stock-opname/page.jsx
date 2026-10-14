@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '@/services/firebase/config';
 import { collection, getDocs, query, orderBy, doc, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { ClipboardCheck, Search, User, Clock, RefreshCw, Scan, FileSpreadsheet, CheckCircle2, AlertCircle, PackageCheck, ChevronRight, X, Layers, Trash2 } from 'lucide-react';
+import { Boxes, Search, User, Clock, RefreshCw, Scan, FileSpreadsheet, CheckCircle2, AlertCircle, PackageCheck, ChevronRight, X, Layers, Trash2 } from 'lucide-react';
 import { CapacitorNfc } from '@capgo/capacitor-nfc';
 import * as XLSX from 'xlsx';
 
@@ -23,7 +23,7 @@ export default function StockOpnamePage() {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setItems(data);
     } catch (err) {
-      console.error('Error fetching opname data:', err);
+      console.error('Error fetching inventory data:', err);
     } finally {
       setLoading(false);
     }
@@ -34,10 +34,10 @@ export default function StockOpnamePage() {
     fetch('/api/system-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'OPNAME' })
+      body: JSON.stringify({ mode: 'INVENTORY' })
     }).catch(err => console.log('Failed to set mode:', err));
 
-    // Listen to real-time hardware opname scans
+    // Listen to real-time hardware scans
     const unsubscribe = onSnapshot(doc(db, 'system', 'settings'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -113,8 +113,8 @@ export default function StockOpnamePage() {
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock Opname');
-    XLSX.writeFile(workbook, `Stock_Opname_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory');
+    XLSX.writeFile(workbook, `Inventory_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const formatTimestamp = (ts) => {
@@ -186,9 +186,9 @@ export default function StockOpnamePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-stone-900 tracking-tight flex items-center gap-2">
-            <ClipboardCheck className="text-blue-600" size={24} /> Inventory & Stock Opname
+            <Boxes className="text-blue-600" size={24} /> Inventory Management
           </h1>
-          <p className="text-xs text-stone-500 mt-0.5">Check grouped material inventory and individual UID breakdowns.</p>
+          <p className="text-xs text-stone-500 mt-0.5">View grouped material inventory and individual UID breakdowns.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -273,7 +273,7 @@ export default function StockOpnamePage() {
         )}
       </div>
 
-      {/* Grouped Stock Opname Table with Accordion Dropdown */}
+      {/* Grouped Inventory Table with Accordion Dropdown */}
       <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-2xs">
         <div className="p-4 border-b border-stone-100 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
