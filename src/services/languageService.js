@@ -91,8 +91,8 @@ export const translations = {
     dashboard: "Dashboard",
     inventory: "Inventaris Gudang",
     stockOpname: "Stock Opname",
-    inbound: "Barang Masuk (Inbound)",
-    outbound: "Barang Keluar (Outbound)",
+    inbound: "Barang Masuk",
+    outbound: "Barang Keluar",
     masterData: "Master Data",
     settings: "Pengaturan & Akses",
     language: "Pilihan Bahasa",
@@ -102,13 +102,13 @@ export const translations = {
     usbConnected: "USB RFID Terhubung",
 
     // Inbound Page
-    inboundHubTitle: "Barang Masuk (Scan In)",
+    inboundHubTitle: "Barang Masuk",
     inboundHubDesc: "Seluruh barang masuk yang terdaftar di inventaris gudang.",
     inboundListTitle: "Daftar Barang Masuk",
     inboundListDesc: "Daftar barang yang telah di-scan dan terdaftar di gudang",
 
     // Outbound Page
-    outboundHubTitle: "Barang Keluar (Scan Out)",
+    outboundHubTitle: "Barang Keluar",
     outboundHubDesc: "Pantau dan kelola seluruh barang yang sudah di-scan OUT dari gudang dilengkapi timestamp.",
     outboundListTitle: "Kelompok Barang Keluar",
     outboundListDesc: "Kelompok material yang telah selesai di-scan OUT dari gudang",
