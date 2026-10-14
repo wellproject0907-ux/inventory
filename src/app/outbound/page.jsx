@@ -24,6 +24,13 @@ export default function OutboundPage() {
       }
     };
     fetchOutbound();
+
+    // Set system mode to INVENTORY so scans are processed correctly
+    fetch('/api/system-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'INVENTORY' })
+    }).catch(err => console.log('Failed to set mode:', err));
   }, []);
 
   const filtered = outboundItems.filter(item =>

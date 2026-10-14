@@ -24,6 +24,13 @@ export default function InboundPage() {
       }
     };
     fetchInbound();
+
+    // Set system mode to INVENTORY so physical scans register new items & show popups
+    fetch('/api/system-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'INVENTORY' })
+    }).catch(err => console.log('Failed to set mode:', err));
   }, []);
 
   const filtered = inboundItems.filter(item =>
