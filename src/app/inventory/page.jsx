@@ -159,10 +159,8 @@ export default function StockOpnamePage() {
       'Material Name': item.nama_barang || '-',
       Supplier: item.kategori || '-',
       'SJ No.': item.no_sj || '-',
-      'SPK No.': item.no_spk || '-',
       'Inbound Time (IN)': formatTimestamp(item.scan_in_at),
-      'Outbound Time (OUT)': formatTimestamp(item.scan_out_at),
-      'Warehouse Status': item.is_completed || item.lifecycle === 'COMPLETED' ? 'CHECKED OUT (COMPLETED)' : 'IN WAREHOUSE (ACTIVE IN)',
+      'Warehouse Status': 'IN WAREHOUSE (ACTIVE IN)',
       'Warehouse User': item.warehouse_user || 'Warehouse Admin'
     }));
 

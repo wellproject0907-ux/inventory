@@ -16,8 +16,10 @@ import {
   Trash2,
   Clock,
   User,
-  Calendar
+  Calendar,
+  FileSpreadsheet
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 export default function OutboundPage() {
   const { lang, t } = useTranslation();
@@ -129,10 +131,37 @@ export default function OutboundPage() {
     setExpandedKeys(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const exportOutboundToExcel = () => {
+    if (items.length === 0) {
+      alert('No outbound items to export.');
+      return;
+    }
+
+    const exportData = items.map((item, index) => ({
+      No: index + 1,
+      SKU: item.sku || '-',
+      UID: item.nfc_uid || '-',
+      'Material Name': item.nama_barang || '-',
+      Supplier: item.kategori || '-',
+      'SJ No.': item.no_sj || '-',
+      'SPK No.': item.no_spk || '-',
+      'Outbound Time (OUT)': formatTimestamp(item.scan_out_at),
+      'Inbound Time (IN)': formatTimestamp(item.scan_in_at),
+      'Warehouse Status': 'CHECKED OUT (COMPLETED)',
+      'Inbound Operator': item.warehouse_user_in || item.warehouse_user || 'Warehouse Admin',
+      'Outbound Operator': item.warehouse_user_out || item.warehouse_user || 'Warehouse Admin'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Outbound Report');
+    XLSX.writeFile(workbook, `Outbound_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   return (
     <div className="w-full space-y-6 pb-24">
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl border border-stone-200/80 shadow-2xs flex items-center justify-between">
+      <div className="bg-white p-6 rounded-2xl border border-stone-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-600 font-semibold text-xs uppercase tracking-wider mb-1">
             <ArrowUpRight size={16} /> Outbound & Scan Out Hub
@@ -141,6 +170,15 @@ export default function OutboundPage() {
           <p className="text-stone-500 text-sm mt-0.5">
             {t('outboundHubDesc')}
           </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={exportOutboundToExcel}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
+          >
+            <FileSpreadsheet size={16} /> {t('exportExcel')}
+          </button>
         </div>
       </div>
 
