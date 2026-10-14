@@ -726,24 +726,6 @@ export default function StockOpnamePage() {
           )}
         </div>
       </div>
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-right">
-                      <button
-                        onClick={() => handleDeleteReport(report.id)}
-                        className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition cursor-pointer shadow-2xs border border-rose-100"
-                        title="Hapus Laporan Arsip ini dari Firebase"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
