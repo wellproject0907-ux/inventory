@@ -80,7 +80,10 @@ export default function RfidModalManager() {
 
       if (currentPath === '/inbound') {
         if (foundItem) {
-          // Tag is ALREADY REGISTERED! Show Already Registered Modal on Inbound
+          // Tag is ALREADY REGISTERED! Highlight row & show modal
+          if (typeof window !== 'undefined' && window.triggerInboundHighlight) {
+            window.triggerInboundHighlight(cleanUid);
+          }
           setItemData(foundItem);
           setActiveModal('registered');
           fetchHistory(foundItem.nfc_uid || foundItem.id);

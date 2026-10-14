@@ -106,10 +106,19 @@ export default function StockOpnamePage() {
 
     if (found) {
       setScannedResult({ found: true, data: found });
-      setHighlightedUid(found.nfc_uid || found.id);
+      const targetUid = found.nfc_uid || found.id;
+      setHighlightedUid(targetUid);
       const groupKey = (found.nama_barang || 'Unnamed Material').trim().toLowerCase();
       setExpandedKeys(prev => ({ ...prev, [groupKey]: true }));
-      setTimeout(() => setHighlightedUid(null), 4000);
+
+      setTimeout(() => {
+        const targetElement = document.getElementById(`inventory-uid-row-${targetUid}`);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+
+      setTimeout(() => setHighlightedUid(null), 5000);
     } else {
       setScannedResult({ found: false, query: uid });
     }
@@ -407,12 +416,18 @@ export default function StockOpnamePage() {
                               </h4>
                               <div className="divide-y divide-stone-100 border border-stone-100 rounded-lg overflow-hidden">
                                 {group.items.map((item) => {
-                                  const isOut = item.is_completed || item.lifecycle === 'COMPLETED';
-                                  const isHighlighted = item.nfc_uid === highlightedUid;
+                                  const itemUid = item.nfc_uid || item.id;
+                                  const isHighlighted = itemUid === highlightedUid || String(itemUid).toUpperCase() === String(highlightedUid).toUpperCase();
                                   return (
-                                    <div key={item.id} className={`p-3 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
-                                      isHighlighted ? 'bg-amber-100 border-2 border-amber-500 animate-pulse' : 'bg-stone-50/50 hover:bg-stone-50'
-                                    }`}>
+                                    <div
+                                      key={item.id}
+                                      id={`inventory-uid-row-${itemUid}`}
+                                      className={`p-3.5 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+                                        isHighlighted
+                                          ? 'bg-amber-100 border-2 border-amber-500 animate-pulse shadow-md ring-2 ring-amber-300'
+                                          : 'bg-stone-50/50 hover:bg-stone-50 border border-stone-100'
+                                      }`}
+                                    >
                                       <div className="space-y-1">
                                         <div className="flex items-center gap-2">
                                           <code className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">UID: {item.nfc_uid}</code>

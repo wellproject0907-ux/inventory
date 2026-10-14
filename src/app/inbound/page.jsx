@@ -14,6 +14,25 @@ export default function InboundPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [message, setMessage] = useState('');
+  const [highlightedUid, setHighlightedUid] = useState(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.triggerInboundHighlight = (uid) => {
+        const clean = String(uid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        setHighlightedUid(clean);
+
+        setTimeout(() => {
+          const el = document.getElementById(`inbound-row-${clean}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 200);
+
+        setTimeout(() => setHighlightedUid(null), 5000);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeToInventory((fetchedItems) => {
@@ -116,10 +135,19 @@ export default function InboundPage() {
                 </tr>
               ) : filteredItems.length > 0 ? (
                 filteredItems.map((item) => {
-                  const stok = Number(item.stok ?? 0);
-                  const isDepleted = stok === 0 || item.lifecycle === 'COMPLETED';
+                  const cleanItemUid = String(item.nfc_uid || item.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                  const isHighlighted = cleanItemUid === highlightedUid;
+
                   return (
-                    <tr key={item.id} className="hover:bg-stone-50/50 transition">
+                    <tr
+                      key={item.id}
+                      id={`inbound-row-${cleanItemUid}`}
+                      className={`transition ${
+                        isHighlighted
+                          ? 'bg-amber-100 border-2 border-amber-500 animate-pulse shadow-md ring-2 ring-amber-300'
+                          : 'hover:bg-stone-50/50'
+                      }`}
+                    >
                       <td className="py-4 px-6 font-bold text-stone-900">{item.nama_barang || 'Unnamed Item'}</td>
                       <td className="py-4 px-6">
                         <p className="font-mono font-bold text-emerald-600">{item.sku || '-'}</p>
