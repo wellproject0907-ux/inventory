@@ -17,19 +17,23 @@ import {
   Cpu,
   Wifi,
   Usb,
-  Cable
+  Cable,
+  Globe
 } from 'lucide-react';
 import { connectWebSerial, autoConnectWebSerial } from '@/services/rfid/webSerialDriver';
+import { getCurrentLanguage, setLanguage } from '@/services/languageService';
 
 export default function WhiteSubpanel({ isCollapsed, onToggle }) {
   const pathname = usePathname();
   const [rfidMode, setRfidMode] = useState('web_serial');
   const [usbConnected, setUsbConnected] = useState(false);
+  const [appLang, setAppLang] = useState('en');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('rfid_input_mode') || 'web_serial';
       setRfidMode(savedMode);
+      setAppLang(getCurrentLanguage());
 
       // Try auto-connecting to previously authorized USB Serial port without showing pop-up
       if (savedMode === 'web_serial') {
@@ -43,6 +47,11 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
       }
     }
   }, []);
+
+  const handleLanguageChange = (lang) => {
+    setAppLang(lang);
+    setLanguage(lang);
+  };
 
   const handleModeChange = (mode) => {
     setRfidMode(mode);
@@ -126,6 +135,39 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
                 </Link>
               );
             })}
+          </div>
+        </div>
+      </div>
+
+      {/* Language Selector */}
+      <div className="border-t border-stone-100 pt-3 px-2 mb-2 space-y-2">
+        <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1">
+              <Globe size={12} className="text-blue-600" /> {appLang === 'id' ? 'Pilihan Bahasa' : 'Language'}
+            </span>
+            <span className="text-[9px] font-bold text-stone-500 uppercase font-mono">
+              {appLang === 'id' ? '🇮🇩 ID' : '🇺🇸 EN'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1 bg-stone-200/60 p-1 rounded-lg text-[10px] font-bold">
+            <button
+              onClick={() => handleLanguageChange('en')}
+              className={`py-1 rounded-md transition cursor-pointer flex items-center justify-center gap-1 ${
+                appLang === 'en' ? 'bg-blue-600 text-white shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <span>🇺🇸</span> English
+            </button>
+            <button
+              onClick={() => handleLanguageChange('id')}
+              className={`py-1 rounded-md transition cursor-pointer flex items-center justify-center gap-1 ${
+                appLang === 'id' ? 'bg-blue-600 text-white shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <span>🇮🇩</span> Indonesia
+            </button>
           </div>
         </div>
       </div>
