@@ -367,6 +367,9 @@ export default function StockOpnamePage() {
                                       <div className="space-y-1">
                                         <div className="flex items-center gap-2">
                                           <code className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">UID: {item.nfc_uid}</code>
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200">
+                                            Qty: {item.stok ?? 1}
+                                          </span>
                                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                             isOut ? 'bg-amber-100 text-amber-800' : 'bg-emerald-600 text-white'
                                           }`}>
