@@ -303,8 +303,12 @@ export default function InboundPage() {
                                         <div className="flex items-center gap-2.5">
                                           <Truck size={15} className="text-emerald-600 shrink-0" />
                                           <div>
-                                            <p className="font-bold text-stone-900 font-mono flex items-center gap-1.5">
+                                            <p className="font-bold text-stone-900 font-mono flex items-center gap-2 flex-wrap">
                                               <span>Delivery Order (SJ): <strong>{sjGroup.no_sj}</strong></span>
+                                              <span className="text-stone-300">|</span>
+                                              <span className="text-stone-700 font-semibold font-sans">
+                                                {lang === 'id' ? 'Pemasok / Supplier' : 'Supplier'}: <strong className="text-emerald-700">{sjGroup.supplier}</strong>
+                                              </span>
                                               <ChevronRight size={14} className={`text-stone-400 transition-transform ${isSjExpanded ? 'rotate-90 text-emerald-600' : ''}`} />
                                             </p>
                                           </div>
