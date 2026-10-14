@@ -144,7 +144,11 @@ export async function POST(req) {
           success: true,
           action: 'PENDING_REGISTRATION',
           message: 'New tag scanned. Pending registration on website.',
-          uid: cleanUid
+          uid: cleanUid,
+          item: {
+            nama_barang: `Barang Baru (${cleanUid})`,
+            stok: 0
+          }
         });
       }
 
