@@ -171,12 +171,15 @@ export default function RfidModalManager() {
     });
 
     // Listen to active_scan for Scan 1 (needs_naming) - Strict Freshness Check (< 10s)
-    const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), (docSnap) => {
+    const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), async (docSnap) => {
       const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
       if (!isActiveTerminal) return;
 
       if (docSnap.exists()) {
         const data = docSnap.data();
+        if (!data.uid) return;
+
+        const cleanUid = String(data.uid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         const scanTime = data.scan_time || (data.created_at?.toMillis ? data.created_at.toMillis() : 0);
         const isFresh = Boolean(data.scan_time) && (Date.now() - scanTime < 10000);
 
@@ -186,10 +189,29 @@ export default function RfidModalManager() {
           return;
         }
 
-        if (isFresh && data.needs_naming && data.uid && !data.claimed) {
+        // UNIVERSAL OPERATOR CARD CHECK: Open Operator Registered Popup across ALL TABS!
+        try {
+          const opDocRef = doc(db, 'operator', cleanUid);
+          const opDocSnap = await getDoc(opDocRef);
+          if (opDocSnap.exists()) {
+            const opData = opDocSnap.data();
+            const opName = opData.nama_operator || opData.nama || 'Operator';
+            const opRole = opData.role || 'Warehouse Staff';
+
+            setActiveOperator({ name: opName, role: opRole });
+            setItemData({ nfc_uid: cleanUid, nama_operator: opName, role: opRole });
+            setActiveModal('operator_registered_popup');
+
+            // Clear active scan in Firestore so no product modal opens
+            updateDoc(doc(db, 'system', 'active_scan'), { needs_naming: false, claimed: true }).catch(() => {});
+            return;
+          }
+        } catch (e) {}
+
+        if (isFresh && data.needs_naming && !data.claimed) {
           const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
           if (currentPath === '/inbound') {
-            setItemData({ id: data.uid, nfc_uid: data.uid, needs_naming: true });
+            setItemData({ id: cleanUid, nfc_uid: cleanUid, needs_naming: true });
             setActiveModal('scan1');
           }
         }
