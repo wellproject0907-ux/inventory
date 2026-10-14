@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/services/firebase/config';
-import { collection, getDocs, query, orderBy, doc, onSnapshot } from 'firebase/firestore';
-import { ClipboardCheck, Search, User, Clock, RefreshCw, Scan, FileSpreadsheet, CheckCircle2, AlertCircle, PackageCheck, ChevronRight, X, Layers } from 'lucide-react';
+import { collection, getDocs, query, orderBy, doc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { ClipboardCheck, Search, User, Clock, RefreshCw, Scan, FileSpreadsheet, CheckCircle2, AlertCircle, PackageCheck, ChevronRight, X, Layers, Trash2 } from 'lucide-react';
+import { CapacitorNfc } from '@capgo/capacitor-nfc';
 import * as XLSX from 'xlsx';
 
 export default function StockOpnamePage() {
@@ -123,6 +124,21 @@ export default function StockOpnamePage() {
       return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
     } catch (e) {
       return '-';
+    }
+  };
+
+  const handleDeleteItem = async (id, nama, uid) => {
+    if (confirm(`Delete item "${nama}" (UID: ${uid})? Data will be deleted and NTAG card erased for reuse.`)) {
+      try {
+        await deleteDoc(doc(db, 'barang', String(id)));
+        try {
+          await CapacitorNfc.erase();
+        } catch (e) {}
+        fetchOpnameData();
+        setSelectedGroup(null);
+      } catch (err) {
+        alert('Failed to delete item: ' + err.message);
+      }
     }
   };
 
@@ -370,8 +386,17 @@ export default function StockOpnamePage() {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-1 text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1 rounded-full shrink-0">
-                        <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1 rounded-full shrink-0">
+                          <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteItem(item.id, item.nama_barang, item.nfc_uid)}
+                          className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition cursor-pointer inline-flex items-center gap-1 shrink-0"
+                          title="Delete item and erase tag"
+                        >
+                          <Trash2 size={13} /> Delete & Erase
+                        </button>
                       </div>
                     </div>
                   );
