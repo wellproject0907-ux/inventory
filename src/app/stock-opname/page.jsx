@@ -36,7 +36,7 @@ export default function StockOpnamePage() {
   const [auditScannedUids, setAuditScannedUids] = useState(new Set());
   const [lastScannedInfo, setLastScannedInfo] = useState(null);
   const [scanInput, setScanInput] = useState('');
-  const [showAllMaterials, setShowAllMaterials] = useState(true);
+  const [showAllMaterials, setShowAllMaterials] = useState(false); // Default false: Starts 100% EMPTY, populates as items are physically scanned
 
   // Firebase Audit Reports History State
   const [opnameReports, setOpnameReports] = useState([]);
