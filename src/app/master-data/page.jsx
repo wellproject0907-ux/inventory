@@ -26,7 +26,7 @@ export default function MasterDataPage() {
   const [showOperatorModal, setShowOperatorModal] = useState(false);
   const [opNama, setOpNama] = useState('');
   const [opUid, setOpUid] = useState('');
-  const [opRole, setOpRole] = useState('Staff Gudang');
+  const [opRole, setOpRole] = useState('Warehouse Staff');
   const [opSubmitting, setOpSubmitting] = useState(false);
 
   // Add Supplier Modal state
@@ -785,8 +785,8 @@ export default function MasterDataPage() {
                   onChange={(e) => setOpRole(e.target.value)}
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900"
                 >
-                  <option value="Staff Gudang">Staff Gudang</option>
-                  <option value="Helper Gudang">Helper Gudang</option>
+                  <option value="Warehouse Staff">Warehouse Staff</option>
+                  <option value="Warehouse Helper">Warehouse Helper</option>
                   <option value="Security">Security</option>
                   <option value="Super Admin">Super Admin</option>
                 </select>

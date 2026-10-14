@@ -8,8 +8,8 @@ import { Settings, Shield, Check, Save, RefreshCw, Users, Lock } from 'lucide-re
 export default function SettingsPage() {
   const [roles, setRoles] = useState([
     { id: 'super_admin', name: 'Super Admin', permissions: { dashboard: true, inventory: true, stockOpname: true, masterData: true, scan: true } },
-    { id: 'staff_gudang', name: 'Staff Gudang', permissions: { dashboard: true, inventory: true, stockOpname: true, masterData: false, scan: true } },
-    { id: 'helper_gudang', name: 'Helper Gudang', permissions: { dashboard: true, inventory: true, stockOpname: true, masterData: false, scan: true } },
+    { id: 'staff_gudang', name: 'Warehouse Staff', permissions: { dashboard: true, inventory: true, stockOpname: true, masterData: false, scan: true } },
+    { id: 'helper_gudang', name: 'Warehouse Helper', permissions: { dashboard: true, inventory: true, stockOpname: true, masterData: false, scan: true } },
     { id: 'security', name: 'Security', permissions: { dashboard: true, inventory: false, stockOpname: true, masterData: false, scan: true } },
   ]);
   const [loading, setLoading] = useState(true);

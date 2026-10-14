@@ -9,7 +9,7 @@ export default function RfidModalManager() {
   const tabIdRef = useRef(typeof window !== 'undefined' ? Math.random().toString(36).substring(2, 9) : 'tab');
   const [activeModal, setActiveModal] = useState(null); // 'operator_auth', 'scan1', 'scan2', 'registered'
   const [itemData, setItemData] = useState(null);
-  const [activeOperator, setActiveOperator] = useState({ name: 'Test Operator', role: 'Staff Gudang' });
+  const [activeOperator, setActiveOperator] = useState({ name: 'Test Operator', role: 'Warehouse Staff' });
   const [pendingAuthUid, setPendingAuthUid] = useState(null);
 
   // Scan 1 states
@@ -74,7 +74,7 @@ export default function RfidModalManager() {
           setActiveModal('scan2');
         } else {
           // Tag is UNREGISTERED!
-          alert(`Kartu UID "${cleanUid}" belum terdaftar di database. Silakan registrasikan di menu Inbound terlebih dahulu.`);
+          alert(`Card UID "${cleanUid}" is not registered in database. Please register it in the Inbound menu first.`);
         }
       } else if (currentPath === '/inventory') {
         if (typeof window !== 'undefined' && window.triggerInventoryScan) {
@@ -319,7 +319,7 @@ export default function RfidModalManager() {
   };
 
   const handleCancelScan1 = async () => {
-    if (confirm('Batalkan pendaftaran kartu ini?')) {
+    if (confirm('Cancel registration for this RFID card?')) {
       try {
         await updateDoc(doc(db, 'system', 'active_scan'), { claimed: true, needs_naming: false });
       } catch (err) {}
@@ -331,7 +331,7 @@ export default function RfidModalManager() {
   const handleSaveScan1 = async (e) => {
     e.preventDefault();
     if (!itemData || (!selectedBahan && !namaBarang)) {
-      alert('Pilih SKU atau Nama Bahan dari Master Data terlebih dahulu!');
+      alert('Please select SKU or Material Name from Master Data first!');
       return;
     }
 
@@ -369,10 +369,10 @@ export default function RfidModalManager() {
         setLastHistory(null);
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(`Gagal menyimpan detail barang: ${errData.message || errData.error || 'Server error'}`);
+        alert(`Failed to save item details: ${errData.message || errData.error || 'Server error'}`);
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan');
+      alert('Network error occurred');
     } finally {
       setLoading(false);
     }
@@ -392,7 +392,7 @@ export default function RfidModalManager() {
   const handleConfirmScan2 = async (e) => {
     e.preventDefault();
     if (!itemData || !noSpk) {
-      alert('Nomor SPK wajib diisi!');
+      alert('SPK document number is required!');
       return;
     }
 
@@ -414,10 +414,10 @@ export default function RfidModalManager() {
         setItemData(null);
         setNoSpk('');
       } else {
-        alert('Gagal mengkonfirmasi Stock OUT');
+        alert('Failed to confirm Outbound Stock');
       }
     } catch (err) {
-      alert('Terjadi kesalahan jaringan');
+      alert('Network error occurred');
     } finally {
       setLoading(false);
     }
@@ -514,7 +514,7 @@ export default function RfidModalManager() {
 
           {/* Operator Authorization Status Banner */}
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between">
-            <span>✅ Authorized Operator: <strong>{activeOperator?.name}</strong> ({activeOperator?.role || 'Staff Gudang'})</span>
+            <span>✅ Authorized Operator: <strong>{activeOperator?.name}</strong> ({activeOperator?.role || 'Warehouse Staff'})</span>
           </div>
 
           <form onSubmit={handleSaveScan1} className="space-y-3.5 pt-2">
@@ -667,16 +667,16 @@ export default function RfidModalManager() {
 
           {/* Operator Authorization Status Banner */}
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between">
-            <span>✅ Authorized Operator: <strong>{activeOperator?.name}</strong> ({activeOperator?.role || 'Staff Gudang'})</span>
+            <span>✅ Authorized Operator: <strong>{activeOperator?.name}</strong> ({activeOperator?.role || 'Warehouse Staff'})</span>
           </div>
 
           <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-4 space-y-2 text-xs">
-            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Data Barang Saat Scan In:</p>
+            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Item Details (Recorded Inbound):</p>
             <div className="grid grid-cols-2 gap-2 text-stone-700">
-              <div><span className="text-stone-400 block text-[10px]">SKU:</span><strong className="font-mono text-blue-600">{itemData.sku || '-'}</strong>data</div>
-              <div><span className="text-stone-400 block text-[10px]">Nama Bahan:</span><strong className="text-stone-900">{itemData.nama_barang || '-'}</strong></div>
+              <div><span className="text-stone-400 block text-[10px]">SKU:</span><strong className="font-mono text-blue-600">{itemData.sku || '-'}</strong></div>
+              <div><span className="text-stone-400 block text-[10px]">Material Name:</span><strong className="text-stone-900">{itemData.nama_barang || '-'}</strong></div>
               <div><span className="text-stone-400 block text-[10px]">Supplier:</span><span>{itemData.kategori || '-'}</span></div>
-              <div><span className="text-stone-400 block text-[10px]">No. Surat Jalan (SJ):</span><span className="font-mono font-semibold">{itemData.no_sj || '-'}</span></div>
+              <div><span className="text-stone-400 block text-[10px]">Delivery Order (SJ):</span><span className="font-mono font-semibold">{itemData.no_sj || '-'}</span></div>
             </div>
           </div>
 

@@ -93,13 +93,13 @@ export async function POST(req) {
 
     if (action === 'CONFIRM_OUT') {
       if (!docSnap.exists()) {
-        return NextResponse.json({ success: false, message: 'Item tidak ditemukan' }, { status: 404 });
+        return NextResponse.json({ success: false, message: 'Item not found' }, { status: 404 });
       }
       const itemData = docSnap.data();
 
       if (no_spk === 'CANCELLED') {
         await updateDoc(docRef, { needs_spk: false, locked_by_tab: null, updated_at: serverTimestamp() });
-        return NextResponse.json({ success: true, message: 'Scan OUT dibatalkan' });
+        return NextResponse.json({ success: true, message: 'Outbound scan cancelled' });
       }
 
       await updateDoc(docRef, {
@@ -123,19 +123,19 @@ export async function POST(req) {
         warehouse_user: finalUser,
         no_sj: itemData.no_sj || '',
         no_spk: no_spk || 'SPK-DEFAULT',
-        keterangan: `Scan 2: Stok OUT (No. SPK: ${no_spk || 'N/A'}) - Selesai`,
+        keterangan: `Scan 2: Stock OUT (SPK No: ${no_spk || 'N/A'}) - Completed`,
         timestamp: serverTimestamp()
       });
 
       return NextResponse.json({
         success: true,
         action: 'OUT',
-        message: 'Konfirmasi Stock OUT berhasil & No. SPK tersimpan',
+        message: 'Outbound stock confirmation successful & SPK saved',
         item: { id: cleanUid, ...itemData, stok: 0, lifecycle: 'COMPLETED' }
       });
     }
 
-    let itemName = nama_barang || `Barang RFID (${cleanUid})`;
+    let itemName = nama_barang || `RFID Item (${cleanUid})`;
     let itemKategori = kategori || 'General Supplier';
     let itemSku = sku || `SKU-${cleanUid}`;
     let itemNoSj = no_sj || '';
@@ -209,7 +209,7 @@ export async function POST(req) {
         success: true,
         action: 'IN',
         needs_naming: false,
-        message: 'Scan 1 Berhasil: Stok IN & No. SJ tersimpan',
+        message: 'Scan 1 Successful: Inbound stock & Delivery Order saved',
         item: { id: cleanUid, sku: itemSku, nama_barang: itemName, stok: 1, lifecycle: 'IN' }
       });
 
@@ -238,14 +238,14 @@ export async function POST(req) {
             jumlah: 1,
             warehouse_user: finalUser,
             no_sj: no_sj,
-            keterangan: `Scan 1 Registered (No. SJ: ${no_sj})`,
+            keterangan: `Scan 1 Registered (Delivery Order: ${no_sj})`,
             timestamp: serverTimestamp()
           });
         }
 
         return NextResponse.json({
           success: true,
-          message: 'Detail SKU, Supplier, dan No. SJ berhasil diperbarui',
+          message: 'SKU, Supplier, and Delivery Order details updated successfully',
           item: { id: cleanUid, sku, nama_barang, kategori, no_sj }
         });
       }
@@ -261,7 +261,7 @@ export async function POST(req) {
         return NextResponse.json({
           success: false,
           error: 'ALREADY_REGISTERED',
-          message: `Ditolak: Kartu UID "${cleanUid}" sudah teregister (Siklus In & Out telah selesai).`,
+          message: `Rejected: UID "${cleanUid}" is already registered (Active in warehouse).`,
           item: itemData
         }, { status: 400 });
       }
@@ -280,7 +280,7 @@ export async function POST(req) {
           success: true,
           action: 'OUT',
           needs_spk: true,
-          message: `Scan 2 terdeteksi untuk "${itemData.nama_barang}": Menunggu konfirmasi No. SPK`,
+          message: `Scan 2 detected for "${itemData.nama_barang}": Awaiting SPK confirmation`,
           item: itemData
         });
       }

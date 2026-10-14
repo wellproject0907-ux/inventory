@@ -70,7 +70,7 @@ export default function RfidAlreadyRegisteredPopup() {
               <AlertCircle size={20} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-stone-900">Kartu Sudah Teregister & Selesai!</h3>
+              <h3 className="text-base font-bold text-stone-900">Tag Already Registered!</h3>
               <p className="text-xs text-stone-500">UID: <code className="bg-stone-100 px-1.5 py-0.5 rounded text-blue-600 font-mono">{registeredItem.nfc_uid}</code></p>
             </div>
           </div>
@@ -84,22 +84,22 @@ export default function RfidAlreadyRegisteredPopup() {
 
         {/* Item Info */}
         <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-4 space-y-2 text-xs">
-          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Informasi Barang:</p>
+          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Item Details:</p>
           <div className="grid grid-cols-2 gap-2 text-stone-700">
             <div>
               <span className="text-stone-400 block text-[10px]">SKU:</span>
               <strong className="font-mono text-blue-600">{registeredItem.sku || '-'}</strong>
             </div>
             <div>
-              <span className="text-stone-400 block text-[10px]">Nama Bahan:</span>
+              <span className="text-stone-400 block text-[10px]">Material Name:</span>
               <strong className="text-stone-900">{registeredItem.nama_barang || '-'}</strong>
             </div>
             <div>
-              <span className="text-stone-400 block text-[10px]">No. Surat Jalan (SJ):</span>
+              <span className="text-stone-400 block text-[10px]">Delivery Order (SJ):</span>
               <span className="font-mono font-semibold">{registeredItem.no_sj || '-'}</span>
             </div>
             <div>
-              <span className="text-stone-400 block text-[10px]">No. SPK:</span>
+              <span className="text-stone-400 block text-[10px]">SPK Number:</span>
               <span className="font-mono font-semibold">{registeredItem.no_spk || '-'}</span>
             </div>
           </div>
@@ -107,11 +107,11 @@ export default function RfidAlreadyRegisteredPopup() {
 
         {/* IN & OUT History */}
         <div className="space-y-2">
-          <p className="text-xs font-bold text-stone-800 uppercase tracking-wider">Histori Masuk (IN) & Keluar (OUT):</p>
+          <p className="text-xs font-bold text-stone-800 uppercase tracking-wider">Transaction History (IN & OUT):</p>
           <div className="space-y-2">
             <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3 text-xs flex justify-between items-center">
               <div>
-                <span className="font-bold text-emerald-800">Scan IN (Masuk Gudang)</span>
+                <span className="font-bold text-emerald-800">Scan IN (Received)</span>
                 <p className="text-[10px] text-stone-500 flex items-center gap-1 mt-0.5">
                   <Clock size={11} /> {formatTimestamp(registeredItem.scan_in_at)}
                 </p>
@@ -121,12 +121,12 @@ export default function RfidAlreadyRegisteredPopup() {
 
             <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-3 text-xs flex justify-between items-center">
               <div>
-                <span className="font-bold text-amber-800">Scan OUT (Keluar Gudang)</span>
+                <span className="font-bold text-amber-800">Scan OUT (Dispatched)</span>
                 <p className="text-[10px] text-stone-500 flex items-center gap-1 mt-0.5">
                   <Clock size={11} /> {formatTimestamp(registeredItem.scan_out_at)}
                 </p>
               </div>
-              <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-full">OUT (Selesai)</span>
+              <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-full">OUT (Completed)</span>
             </div>
           </div>
         </div>
@@ -137,7 +137,7 @@ export default function RfidAlreadyRegisteredPopup() {
             onClick={handleDismiss}
             className="w-full bg-stone-900 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
           >
-            Tutup
+            Close
           </button>
         </div>
       </div>

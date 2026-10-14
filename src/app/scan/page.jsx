@@ -47,7 +47,7 @@ export default function ScanPage() {
             if (authorizedOperatorRef.current) {
               handleScannedUid(uid);
             } else {
-              alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu pada alat Arduino.');
+              alert('⚠️ Operator Authorization Required! Please scan Operator ID Card first.');
             }
           }
         }
@@ -78,13 +78,13 @@ export default function ScanPage() {
       if (docSnap.exists()) {
         const opData = docSnap.data();
         setAuthorizedOperator({ nfc_uid: cleanUid, ...opData });
-        setOperatorStatus(`✅ Authorized: ${opData.nama_operator} (${opData.role || 'Staff Gudang'})`);
+        setOperatorStatus(`✅ Authorized: ${opData.nama_operator} (${opData.role || 'Warehouse Staff'})`);
       } else {
-        alert(`❌ Kartu UID "${cleanUid}" tidak terdaftar sebagai Operator/Staff Gudang yang sah. Silakan daftarkan terlebih dahulu di menu Master Data -> Operators.`);
+        alert(`❌ Card UID "${cleanUid}" is not registered as a valid Operator. Please register it in Master Data -> Operators.`);
       }
     } catch (err) {
       console.error(err);
-      alert('Gagal memverifikasi kartu operator.');
+      alert('Failed to verify operator card.');
     }
   };
 

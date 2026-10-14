@@ -161,11 +161,11 @@ export default function RfidScanPopup() {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!activeOperator) {
-      alert('⚠️ Otorisasi Operator Diperlukan! Silakan scan Kartu ID Operator terlebih dahulu pada alat Arduino.');
+      alert('⚠️ Operator Authorization Required! Please scan Operator ID Card on reader first.');
       return;
     }
     if (!pendingItem || !selectedBahan) {
-      alert('Pilih SKU dari Master Data terlebih dahulu!');
+      alert('Please select SKU from Master Data first!');
       return;
     }
 
@@ -200,11 +200,11 @@ export default function RfidScanPopup() {
         setSuggestedSj('');
         setLastHistory(null);
       } else {
-        alert('Gagal menyimpan detail barang');
+        alert('Failed to save item details');
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan jaringan');
+      alert('Network error occurred');
     } finally {
       setLoading(false);
     }
@@ -230,9 +230,9 @@ export default function RfidScanPopup() {
           <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto text-xl font-bold animate-pulse shadow-sm">
             ⚠️
           </div>
-          <h3 className="text-lg font-bold text-stone-900">Otorisasi Operator Diperlukan</h3>
+          <h3 className="text-lg font-bold text-stone-900">Operator Authorization Required</h3>
           <p className="text-xs text-stone-600 leading-relaxed">
-            Belum ada operator yang terotorisasi. Silakan tempelkan **Kartu ID Operator** terlebih dahulu pada alat **Arduino RC522** untuk membuka akses registrasi barang masuk.
+            No operator authorized. Please scan **Operator ID Card** on reader first to grant inbound registration access.
           </p>
           <div className="pt-2">
             <button
@@ -240,7 +240,7 @@ export default function RfidScanPopup() {
               onClick={handleCancel}
               className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
             >
-              Tutup / Batalkan Scan
+              Close / Cancel Scan
             </button>
           </div>
         </div>
@@ -257,7 +257,7 @@ export default function RfidScanPopup() {
               <Tag size={20} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-stone-900">Scan 1: Registrasi Barang Masuk (IN)</h3>
+              <h3 className="text-base font-bold text-stone-900">Scan 1: Register Inbound Inventory (IN)</h3>
               <p className="text-xs text-stone-500">UID: <code className="bg-stone-100 px-1.5 py-0.5 rounded text-blue-600 font-mono">{pendingItem.nfc_uid}</code></p>
             </div>
           </div>
@@ -271,7 +271,7 @@ export default function RfidScanPopup() {
 
         {/* Operator Authorization Status Banner */}
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between">
-          <span>✅ Authorized Operator: <strong>{activeOperator.name}</strong> ({activeOperator.role || 'Staff Gudang'})</span>
+          <span>✅ Authorized Operator: <strong>{activeOperator.name}</strong> ({activeOperator.role || 'Warehouse Staff'})</span>
         </div>
 
         <form onSubmit={handleSave} className="space-y-3.5 pt-1">

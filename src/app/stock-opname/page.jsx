@@ -151,7 +151,7 @@ export default function StockOpnamePage() {
   };
 
   const handleResetAuditSession = () => {
-    if (confirm('Hapus seluruh hasil scan fisik Stock Opname di sesi ini?\n\n(Hanya menghapus hasil scan Opname, TIDAK menghapus data barang di database gudang).')) {
+    if (confirm('Clear all physical Stock Opname scan results in this session?\n\n(Only clears audit scan counts, DOES NOT delete items from warehouse database).')) {
       setAuditScannedUids(new Set());
       setLastScannedInfo(null);
       if (typeof window !== 'undefined') {
@@ -170,19 +170,19 @@ export default function StockOpnamePage() {
   };
 
   const handleDeleteDatabaseItem = async (id, nama, uid) => {
-    if (confirm(`Hapus permanen barang "${nama}" (UID: ${uid}) dari database gudang?\n\nData barang akan dihapus dari database.`)) {
+    if (confirm(`Permanently delete item "${nama}" (UID: ${uid}) from warehouse database?\n\nItem data will be deleted from database.`)) {
       try {
         await deleteDoc(doc(db, 'barang', String(id)));
         handleRemoveFromAuditSession(uid);
       } catch (err) {
-        alert('Gagal menghapus barang: ' + err.message);
+        alert('Failed to delete item: ' + err.message);
       }
     }
   };
 
   const handleSaveAuditReportToFirebase = async () => {
     if (groupedList.length === 0) {
-      alert('Tidak ada data Opname untuk disimpan.');
+      alert('No Stock Opname data available to save.');
       return;
     }
 
@@ -225,7 +225,7 @@ export default function StockOpnamePage() {
 
       await addDoc(collection(db, 'laporan_opname'), {
         timestamp: serverTimestamp(),
-        date_str: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }),
+        date_str: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
         warehouse_user: 'Warehouse Admin',
         total_system: totalSystem,
         total_physical: totalPhysical,
@@ -235,22 +235,22 @@ export default function StockOpnamePage() {
       });
 
       setSavingReport(false);
-      setSaveMessage('✅ Laporan Hasil Stock Opname berhasil disimpan ke Firebase!');
+      setSaveMessage('✅ Stock Opname audit report saved to Firebase successfully!');
       setTimeout(() => setSaveMessage(''), 4000);
       fetchOpnameReports();
     } catch (err) {
       setSavingReport(false);
-      alert('Gagal menyimpan laporan ke Firebase: ' + err.message);
+      alert('Failed to save audit report to Firebase: ' + err.message);
     }
   };
 
   const handleDeleteReport = async (reportId) => {
-    if (confirm('Hapus arsip laporan Stock Opname ini dari Firebase?')) {
+    if (confirm('Delete this Stock Opname audit report record from Firebase?')) {
       try {
         await deleteDoc(doc(db, 'laporan_opname', reportId));
         fetchOpnameReports();
       } catch (e) {
-        alert('Gagal menghapus laporan: ' + e.message);
+        alert('Failed to delete report: ' + e.message);
       }
     }
   };
@@ -361,7 +361,7 @@ export default function StockOpnamePage() {
             disabled={savingReport}
             className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
           >
-            <Save size={16} /> {savingReport ? 'Saving...' : 'Simpan Laporan ke Firebase'}
+            <Save size={16} /> {savingReport ? 'Saving...' : 'Save Audit Report to Firebase'}
           </button>
           <button
             onClick={exportAuditToExcel}
@@ -469,9 +469,9 @@ export default function StockOpnamePage() {
           ) : groupedList.length === 0 ? (
             <div className="p-12 text-center text-xs text-stone-500 space-y-2">
               <PackageCheck size={32} className="mx-auto text-stone-300" />
-              <p className="font-bold text-stone-700 text-sm">Belum Ada Data Audit di Sesi Ini</p>
+              <p className="font-bold text-stone-700 text-sm">No Audit Scans in Current Session</p>
               <p className="text-stone-400 max-w-md mx-auto leading-relaxed">
-                Silakan tempelkan (*tap*) kartu RFID barang di gudang untuk mulai membandingkan stok fisik dengan stok terdaftar di sistem.
+                Please tap RFID cards on the reader to reconcile physical inventory with system records.
               </p>
             </div>
           ) : (
@@ -482,8 +482,8 @@ export default function StockOpnamePage() {
                   <th className="p-3.5">Supplier</th>
                   <th className="p-3.5 text-center">Qty System</th>
                   <th className="p-3.5 text-center">Qty Physical (Audit)</th>
-                  <th className="p-3.5 text-center">Selisih (Variance)</th>
-                  <th className="p-3.5 text-center">Keterangan / Status Audit</th>
+                  <th className="p-3.5 text-center">Variance</th>
+                  <th className="p-3.5 text-center">Audit Status</th>
                   <th className="p-3.5 text-right">Action</th>
                 </tr>
               </thead>
@@ -496,20 +496,20 @@ export default function StockOpnamePage() {
 
                   let statusBadge = (
                     <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
-                      <CheckCircle2 size={12} /> SESUAI / MATCH
+                      <CheckCircle2 size={12} /> MATCH (IN STOCK)
                     </span>
                   );
 
                   if (variance < 0) {
                     statusBadge = (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 inline-flex items-center gap-1">
-                        <AlertCircle size={12} /> BARANG HILANG ({variance} Unit)
+                        <AlertCircle size={12} /> MISSING ({variance} Units)
                       </span>
                     );
                   } else if (variance > 0) {
                     statusBadge = (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
-                        <AlertTriangle size={12} /> BARANG LEBIH (+{variance} Unit)
+                        <AlertTriangle size={12} /> SURPLUS (+{variance} Units)
                       </span>
                     );
                   }
@@ -600,7 +600,7 @@ export default function StockOpnamePage() {
                                             </span>
                                           ) : (
                                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white flex items-center gap-1">
-                                              <AlertCircle size={11} /> BARANG HILANG (NOT SCANNED)
+                                              <AlertCircle size={11} /> MISSING (NOT SCANNED)
                                             </span>
                                           )}
                                         </div>
@@ -658,35 +658,35 @@ export default function StockOpnamePage() {
           <div className="flex items-center gap-2">
             <History size={18} className="text-blue-600" />
             <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
-              Arsip Riwayat Laporan Stock Opname (Firebase)
+              Firebase Stock Opname Audit Report History
             </h3>
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-bold bg-stone-100 text-stone-700 border border-stone-200">
-            {opnameReports.length} Laporan Tersimpan
+            {opnameReports.length} Saved Reports
           </span>
         </div>
 
         <div className="overflow-x-auto">
           {opnameReports.length === 0 ? (
             <div className="p-8 text-center text-xs text-stone-400">
-              Belum ada arsip laporan opname yang disimpan ke Firebase.
+              No saved audit reports in Firebase yet.
             </div>
           ) : (
             <table className="w-full text-left border-collapse">
               <thead className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
                 <tr>
-                  <th className="p-3.5">Tanggal Audit</th>
+                  <th className="p-3.5">Audit Date</th>
                   <th className="p-3.5">Auditor / Operator</th>
-                  <th className="p-3.5 text-center">Ringkasan (System vs Scan)</th>
-                  <th className="p-3.5 text-center">Hasil Audit (Hilang / Lebih)</th>
-                  <th className="p-3.5 text-right">Aksi</th>
+                  <th className="p-3.5 text-center">Summary (System vs Scan)</th>
+                  <th className="p-3.5 text-center">Audit Result (Missing / Surplus)</th>
+                  <th className="p-3.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-xs text-stone-800">
                 {opnameReports.map((report) => (
                   <tr key={report.id} className="hover:bg-stone-50/50 transition">
                     <td className="p-3.5 font-mono font-bold text-stone-900">
-                      {report.date_str || (report.timestamp?.toDate ? report.timestamp.toDate().toLocaleString() : 'Baru saja')}
+                      {report.date_str || (report.timestamp?.toDate ? report.timestamp.toDate().toLocaleString() : 'Just now')}
                     </td>
                     <td className="p-3.5 font-medium text-stone-700">{report.warehouse_user || 'Warehouse Admin'}</td>
                     <td className="p-3.5 text-center font-semibold text-stone-700">
@@ -696,18 +696,36 @@ export default function StockOpnamePage() {
                       <div className="flex items-center justify-center gap-2">
                         {report.total_missing > 0 ? (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                            {report.total_missing} Hilang
+                            {report.total_missing} Missing
                           </span>
                         ) : (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            Match (0 Hilang)
+                            Match (0 Missing)
                           </span>
                         )}
                         {report.total_surplus > 0 && (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                            +{report.total_surplus} Lebih
+                            +{report.total_surplus} Surplus
                           </span>
                         )}
+                      </div>
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <button
+                        onClick={() => handleDeleteReport(report.id)}
+                        className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition cursor-pointer shadow-2xs border border-rose-100"
+                        title="Delete this archived report from Firebase"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
                       </div>
                     </td>
                     <td className="p-3.5 text-right">
