@@ -23,7 +23,17 @@ export default function OutboundPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [message, setMessage] = useState('');
+  const [scanAlertMessage, setScanAlertMessage] = useState('');
   const [expandedKeys, setExpandedKeys] = useState({});
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.triggerOutboundAlert = (uid) => {
+        setScanAlertMessage(`Item with SKU / UID "${uid}" not found in warehouse!`);
+        setTimeout(() => setScanAlertMessage(''), 6000);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeToInventory((fetchedItems) => {
@@ -126,6 +136,13 @@ export default function OutboundPage() {
           </p>
         </div>
       </div>
+
+      {scanAlertMessage && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fade-in shadow-2xs">
+          <AlertTriangle className="text-rose-600 shrink-0" size={18} />
+          <span>{scanAlertMessage}</span>
+        </div>
+      )}
 
       {message && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-xs font-semibold flex items-center gap-2">

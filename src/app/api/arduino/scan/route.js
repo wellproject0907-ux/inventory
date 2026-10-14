@@ -250,20 +250,13 @@ export async function POST(req) {
         });
       }
 
-      if (itemData.is_completed || itemData.lifecycle === 'COMPLETED') {
-        await updateDoc(docRef, {
-          needs_already_registered_popup: true,
-          locked_by_tab: null,
-          updated_at: serverTimestamp(),
-          scan_time: Date.now()
-        });
-
+      if (itemData.is_completed || itemData.lifecycle === 'COMPLETED' || Number(itemData.stok ?? 0) === 0) {
         return NextResponse.json({
           success: false,
-          error: 'ALREADY_REGISTERED',
-          message: `Rejected: UID "${cleanUid}" is already registered (Active in warehouse).`,
+          error: 'NOT_FOUND_IN_WAREHOUSE',
+          message: `Item with SKU / UID "${cleanUid}" not found in warehouse!`,
           item: itemData
-        }, { status: 400 });
+        }, { status: 404 });
       }
 
       if (itemData.lifecycle === 'IN' || Number(itemData.stok ?? 0) > 0) {

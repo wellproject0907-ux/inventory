@@ -68,13 +68,16 @@ export default function RfidModalManager() {
           setActiveModal('scan1');
         }
       } else if (currentPath === '/outbound') {
-        if (foundItem) {
-          // Tag is REGISTERED! Open Scan 2 OUT (SPK) Modal
+        const isActiveInWarehouse = foundItem && !foundItem.is_completed && foundItem.lifecycle !== 'COMPLETED' && Number(foundItem.stok ?? 1) > 0;
+        if (isActiveInWarehouse) {
+          // Tag is ACTIVE IN WAREHOUSE! Open Scan 2 OUT (SPK) Modal
           setItemData(foundItem);
           setActiveModal('scan2');
         } else {
-          // Tag is UNREGISTERED!
-          alert(`Card UID "${cleanUid}" is not registered in database. Please register it in the Inbound menu first.`);
+          // Item NOT ACTIVE or ALREADY CHECKED OUT / UNREGISTERED! Display clean red alert banner
+          if (typeof window !== 'undefined' && window.triggerOutboundAlert) {
+            window.triggerOutboundAlert(cleanUid);
+          }
         }
       } else if (currentPath === '/inventory') {
         if (typeof window !== 'undefined' && window.triggerInventoryScan) {
