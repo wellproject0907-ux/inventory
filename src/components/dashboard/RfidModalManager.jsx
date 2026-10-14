@@ -77,18 +77,16 @@ export default function RfidModalManager() {
 
     // Listen to active_scan for Scan 1 (needs_naming)
     const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), (docSnap) => {
-      const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
+      const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
       if (!isActiveTerminal) return;
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.needs_naming && data.uid && !data.claimed) {
-          const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (data.needs_naming && data.uid) {
+          const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
           if (currentPath === '/inbound') {
-            if (activeModal !== 'scan1') {
-              setItemData({ id: data.uid, nfc_uid: data.uid, needs_naming: true });
-              setActiveModal('scan1');
-            }
+            setItemData({ id: data.uid, nfc_uid: data.uid, needs_naming: true });
+            setActiveModal('scan1');
           }
         }
       }
@@ -96,34 +94,28 @@ export default function RfidModalManager() {
 
     // Listen directly to collection 'barang' for registered items (already registered & needs_spk)
     const unsubBarang = onSnapshot(collection(db, 'barang'), (snapshot) => {
-      const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
+      const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
       if (!isActiveTerminal) return;
 
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
+
       // PRIORITAS 2: Already Registered - Only allowed on /outbound page
-      const regDoc = docs.find(d => d.needs_already_registered_popup === true);
-      if (regDoc) {
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-        if (currentPath === '/outbound') {
-          if (activeModal !== 'registered') {
-            setItemData(regDoc);
-            setActiveModal('registered');
-            fetchHistory(regDoc.nfc_uid);
-          }
+      if (currentPath === '/outbound') {
+        const regDoc = docs.find(d => d.needs_already_registered_popup === true);
+        if (regDoc) {
+          setItemData(regDoc);
+          setActiveModal('registered');
+          fetchHistory(regDoc.nfc_uid);
           return;
         }
-      }
 
-      // PRIORITAS 3: Scan 2 - OUT (needs_spk) - Only allowed on /outbound page
-      const outDoc = docs.find(d => d.needs_spk === true);
-      if (outDoc) {
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-        if (currentPath === '/outbound') {
-          if (activeModal !== 'scan2') {
-            setItemData(outDoc);
-            setActiveModal('scan2');
-          }
+        // PRIORITAS 3: Scan 2 - OUT (needs_spk) - Only allowed on /outbound page
+        const outDoc = docs.find(d => d.needs_spk === true);
+        if (outDoc) {
+          setItemData(outDoc);
+          setActiveModal('scan2');
           return;
         }
       }

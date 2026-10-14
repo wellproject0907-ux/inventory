@@ -137,7 +137,8 @@ export async function POST(req) {
           uid: cleanUid,
           needs_naming: true,
           claimed: false,
-          created_at: serverTimestamp()
+          created_at: serverTimestamp(),
+          scan_time: Date.now()
         });
 
         return NextResponse.json({
