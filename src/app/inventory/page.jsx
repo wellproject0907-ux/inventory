@@ -275,8 +275,12 @@ export default function StockOpnamePage() {
 
       {/* Grouped Inventory Table with Accordion Dropdown */}
       <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-2xs">
-        <div className="p-4 border-b border-stone-100 flex items-center justify-end gap-3">
-          <div className="relative w-full md:w-72">
+        <div className="p-4 border-b border-stone-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Layers size={18} className="text-blue-600" />
+            <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Grouped Material Inventory</h3>
+          </div>
+          <div className="relative flex-1 md:w-72">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-stone-400">
               <Search size={14} />
             </span>
