@@ -114,10 +114,35 @@ export default function StockOpnamePage() {
     setScanInput('');
   };
 
+  // Load saved Stock Opname audit session from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('stock_opname_audit_uids');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAuditScannedUids(new Set(parsed));
+          }
+        } catch (e) {}
+      }
+    }
+  }, []);
+
+  // Save audit session to localStorage whenever auditScannedUids updates
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('stock_opname_audit_uids', JSON.stringify(Array.from(auditScannedUids)));
+    }
+  }, [auditScannedUids]);
+
   const handleResetAuditSession = () => {
-    if (confirm('Reset current Stock Opname audit scan session? Scanned physical counts will be reset to 0.')) {
+    if (confirm('Hapus seluruh hasil scan fisik Stock Opname di sesi ini?\n\n(Hanya menghapus hasil scan Opname, TIDAK menghapus data barang di database gudang).')) {
       setAuditScannedUids(new Set());
       setLastScannedInfo(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('stock_opname_audit_uids');
+      }
     }
   };
 
