@@ -10,7 +10,9 @@ import {
   Settings,
   LogOut,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  ArrowDownLeft,
+  ArrowUpRight
 } from 'lucide-react';
 
 export default function WhiteSubpanel({ isCollapsed, onToggle }) {
@@ -19,7 +21,9 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
   const menus = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
     { label: 'Stock & Items', href: '/inventory', icon: Boxes },
-    { label: 'Stock Opname', href: '/stock-opname', icon: ClipboardCheck },
+    { label: 'Inventory (view scan in)', href: '/stock-opname', icon: ClipboardCheck },
+    { label: 'Inbound', href: '/inbound', icon: ArrowDownLeft },
+    { label: 'Outbound', href: '/outbound', icon: ArrowUpRight },
     { label: 'Master Data', href: '/master-data', icon: Database },
     { label: 'Settings & Roles', href: '/settings', icon: Settings },
   ];
