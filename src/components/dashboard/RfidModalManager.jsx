@@ -44,6 +44,28 @@ export default function RfidModalManager() {
     const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
     const cleanUid = String(uid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
+    // STRICT OPERATOR CARD CHECK: If UID is an Operator Card, authorize operator and BLOCK Scan IN / Scan OUT!
+    try {
+      const opDocRef = doc(db, 'operator', cleanUid);
+      const opDocSnap = await getDoc(opDocRef);
+      if (opDocSnap.exists()) {
+        const opData = opDocSnap.data();
+        const opName = opData.nama_operator || opData.nama || 'Operator';
+        const opRole = opData.role || 'Warehouse Staff';
+        setActiveOperator({ name: opName, role: opRole });
+        try {
+          await updateDoc(doc(db, 'system', 'settings'), {
+            active_operator_name: opName,
+            active_operator_role: opRole,
+            active_operator_uid: cleanUid,
+            updated_at: serverTimestamp()
+          });
+        } catch (err) {}
+        // Strictly BLOCK Scan IN and Scan OUT popups for Operator Cards!
+        return;
+      }
+    } catch (e) {}
+
     try {
       const res = await fetch('/api/barang');
       let foundItem = null;
@@ -391,24 +413,27 @@ export default function RfidModalManager() {
   };
 
   const handleSpkInputChange = (e) => {
-    let val = e.target.value;
+    let input = e.target.value.toUpperCase();
 
-    if (!val.startsWith('SPK-')) {
-      const clean = val.replace(/^SPK-?/i, '');
-      val = 'SPK-' + clean;
+    if (!input.startsWith('SPK-')) {
+      const clean = input.replace(/^SPK-?/i, '');
+      input = 'SPK-' + clean;
     }
 
-    const rest = val.slice(4);
-    const match = rest.match(/^(\d{1,4})(.*)$/);
-    if (match) {
-      const digits = match[1];
-      const tail = match[2];
-      if (digits.length === 4 && !tail.startsWith('-')) {
-        val = `SPK-${digits}-${tail}`;
-      }
+    let digits = input.slice(4).replace(/[^0-9]/g, '');
+
+    // Strict Limit: Max 9 digits (4 digits + 5 digits) => Locks after SPK-XXXX-YYYYY
+    if (digits.length > 9) {
+      digits = digits.slice(0, 9);
     }
 
-    setNoSpk(val);
+    if (digits.length > 4) {
+      const part1 = digits.slice(0, 4);
+      const part2 = digits.slice(4, 9);
+      setNoSpk(`SPK-${part1}-${part2}`);
+    } else {
+      setNoSpk(`SPK-${digits}`);
+    }
   };
 
   const handleCancelScan2 = async () => {
@@ -722,7 +747,8 @@ export default function RfidModalManager() {
                 type="text"
                 value={noSpk || 'SPK-'}
                 onChange={handleSpkInputChange}
-                placeholder="e.g. SPK-1234-PROJECT_A"
+                placeholder="e.g. SPK-1234-56789"
+                maxLength={15}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-amber-500 font-mono text-stone-900 font-bold"
                 required
                 autoFocus

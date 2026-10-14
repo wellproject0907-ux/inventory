@@ -18,29 +18,42 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid RFID UID format' }, { status: 400 });
     }
 
-    // Always update last_scanned_uid for any physical Arduino reader scan
+    // === STRICT OPERATOR CARD CHECK ===
+    // If card belongs to an Operator ID Card, authorize operator and REJECT product Scan IN / Scan OUT transactions!
     try {
-      await updateDoc(doc(db, 'system', 'settings'), {
-        last_scanned_uid: cleanUid,
-        last_scanned_at: serverTimestamp()
-      });
-      await setDoc(doc(db, 'system', 'active_scan'), {
-        uid: cleanUid,
-        claimed: false,
-        created_at: serverTimestamp()
-      });
-    } catch (e) {
-      try {
-        await setDoc(doc(db, 'system', 'settings'), {
+      const opDocRef = doc(db, 'operator', cleanUid);
+      const opDocSnap = await getDoc(opDocRef);
+      if (opDocSnap.exists()) {
+        const opData = opDocSnap.data();
+        const opName = opData.nama_operator || opData.nama || 'Operator';
+        const opRole = opData.role || 'Warehouse Staff';
+
+        await updateDoc(doc(db, 'system', 'settings'), {
+          active_operator_name: opName,
+          active_operator_role: opRole,
+          active_operator_uid: cleanUid,
           last_scanned_uid: cleanUid,
-          last_scanned_at: serverTimestamp()
-        }, { merge: true });
+          last_scanned_at: serverTimestamp(),
+          updated_at: serverTimestamp()
+        }).catch(() => {});
+
+        // Clear active scan so no Scan IN / Scan OUT modal opens for operator card!
         await setDoc(doc(db, 'system', 'active_scan'), {
           uid: cleanUid,
-          claimed: false,
+          claimed: true,
+          needs_naming: false,
           created_at: serverTimestamp()
+        }).catch(() => {});
+
+        return NextResponse.json({
+          success: true,
+          action: 'OPERATOR_AUTHORIZED',
+          message: `Operator Authorized: "${opName}". Operator ID cards cannot be registered as product inventory.`,
+          operator: opData
         });
-      } catch (err) {}
+      }
+    } catch (e) {
+      console.error('Operator card check error:', e);
     }
 
     const finalUser = warehouse_user || 'Test Operator';
