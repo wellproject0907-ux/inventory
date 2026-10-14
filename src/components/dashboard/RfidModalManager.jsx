@@ -113,6 +113,10 @@ export default function RfidModalManager() {
         if (typeof window !== 'undefined' && window.triggerStockOpnameScan) {
           window.triggerStockOpnameScan(cleanUid);
         }
+      } else if (currentPath === '/master-data') {
+        if (typeof window !== 'undefined' && window.triggerMasterDataScan) {
+          window.triggerMasterDataScan(cleanUid);
+        }
       }
     } catch (e) {
       console.error('Error handling direct scan UID:', e);

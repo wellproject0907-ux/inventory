@@ -80,29 +80,38 @@ export default function MasterDataPage() {
     fetchData();
   }, []);
 
-  // Listen to hardware Arduino RC522 scans when Card Scan Modal is open
+  // Listen to hardware RFID scans (USB / Wi-Fi / Bridge) to populate Operator UID
   useEffect(() => {
-    if (!showCardScanModal) return;
-
     const unsubscribe = onSnapshot(doc(db, 'system', 'settings'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.last_scanned_uid) {
           const scannedAt = data.last_scanned_at?.toMillis ? data.last_scanned_at.toMillis() : 0;
-          if (Date.now() - scannedAt < 5000) {
-            const uid = data.last_scanned_uid;
-            setOpUid(uid.trim());
-            setOpNama('');
-            setOpRole('Staff Gudang');
-            setShowCardScanModal(false);
-            setShowOperatorModal(true);
+          if (Date.now() - scannedAt < 10000) {
+            const uid = String(data.last_scanned_uid).trim().toUpperCase();
+            if (activeTab === 'operator' || showOperatorModal || showCardScanModal) {
+              setOpUid(uid);
+              setShowCardScanModal(false);
+              setShowOperatorModal(true);
+            }
           }
         }
       }
     });
 
+    if (typeof window !== 'undefined') {
+      window.triggerMasterDataScan = (uid) => {
+        const clean = String(uid).trim().toUpperCase();
+        if (activeTab === 'operator' || showOperatorModal || showCardScanModal) {
+          setOpUid(clean);
+          setShowCardScanModal(false);
+          setShowOperatorModal(true);
+        }
+      };
+    }
+
     return () => unsubscribe();
-  }, [showCardScanModal]);
+  }, [activeTab, showOperatorModal, showCardScanModal]);
 
   const startScanForOperator = async () => {
     // Open the scan modal which listens to hardware Arduino scans & allows manual/simulate entry
