@@ -132,6 +132,22 @@ export async function POST(req) {
     let itemNoSj = no_sj || '';
 
     if (!docSnap.exists()) {
+      if (!sku) {
+        await setDoc(doc(db, 'system', 'active_scan'), {
+          uid: cleanUid,
+          needs_naming: true,
+          claimed: false,
+          created_at: serverTimestamp()
+        });
+
+        return NextResponse.json({
+          success: true,
+          action: 'PENDING_REGISTRATION',
+          message: 'New tag scanned. Pending registration on website.',
+          uid: cleanUid
+        });
+      }
+
       const itemData = {
         nfc_uid: cleanUid,
         sku: itemSku,
@@ -143,7 +159,7 @@ export async function POST(req) {
         lifecycle: 'IN',
         is_completed: false,
         needs_operator_auth: false,
-        needs_naming: !sku,
+        needs_naming: false,
         needs_spk: false,
         needs_already_registered_popup: false,
         warehouse_user: finalUser,
@@ -156,24 +172,29 @@ export async function POST(req) {
 
       await setDoc(docRef, itemData);
 
-      if (sku) {
-        await addDoc(collection(db, 'riwayat_transaksi'), {
-          nfc_uid: cleanUid,
-          sku: itemSku,
-          nama_barang: itemName,
-          tipe: 'IN',
-          jumlah: 1,
-          warehouse_user: finalUser,
-          no_sj: itemNoSj,
-          keterangan: `Scan 1: Stok IN (No. SJ: ${itemNoSj || 'N/A'})`,
-          timestamp: serverTimestamp()
-        });
-      }
+      await setDoc(doc(db, 'system', 'active_scan'), {
+        uid: cleanUid,
+        claimed: true,
+        needs_naming: false,
+        created_at: serverTimestamp()
+      });
+
+      await addDoc(collection(db, 'riwayat_transaksi'), {
+        nfc_uid: cleanUid,
+        sku: itemSku,
+        nama_barang: itemName,
+        tipe: 'IN',
+        jumlah: 1,
+        warehouse_user: finalUser,
+        no_sj: itemNoSj,
+        keterangan: `Scan 1: Stok IN (No. SJ: ${itemNoSj || 'N/A'})`,
+        timestamp: serverTimestamp()
+      });
 
       return NextResponse.json({
         success: true,
         action: 'IN',
-        needs_naming: !sku,
+        needs_naming: false,
         message: 'Scan 1 Berhasil: Stok IN & No. SJ tersimpan',
         item: { id: cleanUid, sku: itemSku, nama_barang: itemName, stok: 1, lifecycle: 'IN' }
       });

@@ -75,25 +75,31 @@ export default function RfidModalManager() {
       }
     });
 
-    // Listen directly to collection 'barang' in real-time via Firestore WebSocket (Instant 0.something seconds popup)
+    // Listen to active_scan for Scan 1 (needs_naming)
+    const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), (docSnap) => {
+      const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
+      if (!isActiveTerminal) return;
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.needs_naming && data.uid && !data.claimed) {
+          const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+          if (currentPath === '/inbound') {
+            if (activeModal !== 'scan1') {
+              setItemData({ id: data.uid, nfc_uid: data.uid, needs_naming: true });
+              setActiveModal('scan1');
+            }
+          }
+        }
+      }
+    });
+
+    // Listen directly to collection 'barang' for registered items (already registered & needs_spk)
     const unsubBarang = onSnapshot(collection(db, 'barang'), (snapshot) => {
       const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
       if (!isActiveTerminal) return;
 
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      // PRIORITAS 1: Scan 1 - IN (needs_naming) - Only allowed on /inbound page
-      const inDoc = docs.find(d => d.needs_naming === true);
-      if (inDoc) {
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-        if (currentPath === '/inbound') {
-          if (activeModal !== 'scan1') {
-            setItemData(inDoc);
-            setActiveModal('scan1');
-          }
-          return;
-        }
-      }
 
       // PRIORITAS 2: Already Registered
       const regDoc = docs.find(d => d.needs_already_registered_popup === true);
@@ -107,7 +113,7 @@ export default function RfidModalManager() {
       }
 
       // PRIORITAS 3: Scan 2 - OUT (needs_spk)
-      const outDoc = docs.find(d => d.needs_spk === true && !d.needs_naming);
+      const outDoc = docs.find(d => d.needs_spk === true);
       if (outDoc) {
         if (activeModal !== 'scan2') {
           setItemData(outDoc);
@@ -119,6 +125,7 @@ export default function RfidModalManager() {
 
     return () => {
       unsubSettings();
+      unsubActiveScan();
       unsubBarang();
     };
   }, [pendingAuthUid, activeModal]);
@@ -193,15 +200,12 @@ export default function RfidModalManager() {
   };
 
   const handleCancelScan1 = async () => {
-    if (!itemData) return;
     if (confirm('Batalkan pendaftaran kartu ini?')) {
       try {
-        await deleteDoc(doc(db, 'barang', itemData.id));
-        setActiveModal(null);
-        setItemData(null);
-      } catch (err) {
-        setActiveModal(null);
-      }
+        await updateDoc(doc(db, 'system', 'active_scan'), { claimed: true, needs_naming: false });
+      } catch (err) {}
+      setActiveModal(null);
+      setItemData(null);
     }
   };
 
