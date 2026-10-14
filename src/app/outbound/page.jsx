@@ -84,16 +84,6 @@ export default function OutboundPage() {
     }
   };
 
-  const formatTimeOnly = (ts) => {
-    if (!ts) return '-';
-    try {
-      const date = ts.toDate ? ts.toDate() : new Date(ts);
-      return date.toLocaleTimeString(lang === 'id' ? 'id-ID' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    } catch (e) {
-      return '-';
-    }
-  };
-
   const filteredItems = items.filter(item =>
     item.nama_barang?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.nfc_uid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -168,7 +158,7 @@ export default function OutboundPage() {
         </div>
       )}
 
-      {/* Date-Grouped Outbound Reconciliation Table */}
+      {/* Date-Grouped Outbound Table */}
       <div className="bg-white rounded-2xl border border-stone-200/80 shadow-2xs overflow-hidden">
         <div className="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -196,22 +186,20 @@ export default function OutboundPage() {
             <thead className="bg-stone-50 text-[11px] font-bold text-stone-500 uppercase tracking-wider border-b border-stone-200">
               <tr>
                 <th className="py-3.5 px-6">{lang === 'id' ? 'Tanggal Outbound' : 'Outbound Date'}</th>
-                <th className="py-3.5 px-6">{lang === 'id' ? 'Ringkasan Barang Keluar' : 'Outbound Items Summary'}</th>
                 <th className="py-3.5 px-6 text-center">{t('totalQtyOut')}</th>
-                <th className="py-3.5 px-6">{t('status')}</th>
+                <th className="py-3.5 px-6">{lang === 'id' ? 'Operator Scan' : 'Scan Operator'}</th>
                 <th className="py-3.5 px-6 text-right">{t('action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-12 text-stone-400">Loading outbound items...</td>
+                  <td colSpan="4" className="text-center py-12 text-stone-400">Loading outbound items...</td>
                 </tr>
               ) : groupedList.length > 0 ? (
                 groupedList.map((group) => {
                   const isExpanded = !!expandedKeys[group.sortKey];
-                  const uniqueMaterialNames = Array.from(new Set(group.items.map(i => i.nama_barang || 'Unnamed Item')));
-                  const summaryText = uniqueMaterialNames.slice(0, 3).join(', ') + (uniqueMaterialNames.length > 3 ? ` (+${uniqueMaterialNames.length - 3} more)` : '');
+                  const operators = Array.from(new Set(group.items.map(i => i.warehouse_user || 'Warehouse Admin'))).join(', ');
 
                   return (
                     <React.Fragment key={group.sortKey}>
@@ -226,17 +214,12 @@ export default function OutboundPage() {
                             <ChevronRight size={14} className={`text-stone-400 transition-transform ${isExpanded ? 'rotate-90 text-amber-600' : ''}`} />
                           </p>
                         </td>
-                        <td className="py-4 px-6 text-stone-700 font-medium">
-                          <span className="bg-stone-100 text-stone-800 px-2.5 py-1 rounded-lg font-mono text-[11px] border border-stone-200">
-                            {summaryText}
-                          </span>
-                        </td>
                         <td className="py-4 px-6 text-center font-bold text-amber-600 text-sm">
                           {group.items.length} Pcs OUT
                         </td>
-                        <td className="py-4 px-6 whitespace-nowrap">
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
-                            <AlertTriangle size={12} /> {t('checkedOut')}
+                        <td className="py-4 px-6 font-medium text-stone-700">
+                          <span className="bg-stone-100 text-stone-800 px-3 py-1 rounded-full text-[11px] border border-stone-200 inline-flex items-center gap-1">
+                            <User size={12} className="text-stone-500" /> {operators}
                           </span>
                         </td>
                         <td className="py-4 px-6 text-right whitespace-nowrap">
@@ -253,7 +236,7 @@ export default function OutboundPage() {
                       {/* Accordion Dropdown Breakdown (Individual Outbound Items on This Date) */}
                       {isExpanded && (
                         <tr className="bg-stone-50/80 animate-fade-in">
-                          <td colSpan="5" className="p-4">
+                          <td colSpan="4" className="p-4">
                             <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3 shadow-inner">
                               <h4 className="text-[11px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-2">
                                 <Layers size={14} className="text-amber-600" /> Items Checked Out On {group.displayDate} ({group.items.length} Total)
@@ -262,30 +245,31 @@ export default function OutboundPage() {
                                 {group.items.map((item) => (
                                   <div
                                     key={item.id}
-                                    className="p-3.5 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-stone-50/50 hover:bg-stone-50"
+                                    className="p-3.5 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-stone-50/50 hover:bg-stone-50 border border-stone-100"
                                   >
-                                    <div className="space-y-1">
-                                      <p className="font-bold text-stone-900 text-sm">{item.nama_barang || 'Unnamed Item'}</p>
+                                    <div className="space-y-1.5 flex-1">
                                       <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-bold text-stone-900 text-sm">{item.nama_barang || 'Unnamed Item'}</span>
                                         <code className="font-mono font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
                                           SKU: {item.sku || '-'} | UID: {item.nfc_uid}
                                         </code>
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                          {t('checkedOut')}
-                                        </span>
                                       </div>
+
                                       <p className="text-[11px] text-stone-600 font-mono">
                                         SJ: <span className="font-semibold text-stone-800">{item.no_sj || '-'}</span> | SPK: <span className="font-semibold text-stone-800">{item.no_spk || '-'}</span> | Supplier: <span className="font-semibold text-stone-800">{item.kategori || 'General'}</span>
                                       </p>
-                                      <p className="text-[10px] text-stone-500 flex items-center gap-2 flex-wrap">
-                                        <span className="flex items-center gap-1 font-bold text-amber-700">
-                                          <Clock size={11} /> Outbound Time: {formatTimeOnly(item.scan_out_at)}
-                                        </span>
-                                        <span className="text-stone-300">|</span>
-                                        <span className="flex items-center gap-1 text-stone-400">
-                                          Inbound: {formatTimestamp(item.scan_in_at)}
-                                        </span>
-                                      </p>
+
+                                      {/* Timestamps: LEFT = Inbound Date | RIGHT = Outbound Date */}
+                                      <div className="flex items-center justify-between gap-4 pt-1 text-[11px] font-mono text-stone-600 bg-white p-2 rounded-lg border border-stone-100 max-w-lg">
+                                        <div className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                                          <Clock size={12} className="text-emerald-600 shrink-0" />
+                                          <span>Inbound: {formatTimestamp(item.scan_in_at)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-amber-700 font-bold">
+                                          <Clock size={12} className="text-amber-600 shrink-0" />
+                                          <span>Outbound: {formatTimestamp(item.scan_out_at)}</span>
+                                        </div>
+                                      </div>
                                     </div>
 
                                     <div className="flex items-center gap-2">
@@ -312,7 +296,7 @@ export default function OutboundPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="5" className="text-center py-12 text-stone-400">
+                  <td colSpan="4" className="text-center py-12 text-stone-400">
                     No outbound items yet. Perform Scan OUT on an active item to see it here.
                   </td>
                 </tr>
