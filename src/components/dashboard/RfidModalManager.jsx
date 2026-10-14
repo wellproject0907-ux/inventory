@@ -72,6 +72,7 @@ export default function RfidModalManager() {
         if (isActiveInWarehouse) {
           // Tag is ACTIVE IN WAREHOUSE! Open Scan 2 OUT (SPK) Modal
           setItemData(foundItem);
+          setNoSpk('SPK-');
           setActiveModal('scan2');
         } else {
           // Item NOT ACTIVE or ALREADY CHECKED OUT / UNREGISTERED! Display clean red alert banner
@@ -209,6 +210,7 @@ export default function RfidModalManager() {
         });
         if (outDoc) {
           setItemData(outDoc);
+          setNoSpk('SPK-');
           setActiveModal('scan2');
           return;
         }
@@ -386,6 +388,27 @@ export default function RfidModalManager() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSpkInputChange = (e) => {
+    let val = e.target.value;
+
+    if (!val.startsWith('SPK-')) {
+      const clean = val.replace(/^SPK-?/i, '');
+      val = 'SPK-' + clean;
+    }
+
+    const rest = val.slice(4);
+    const match = rest.match(/^(\d{1,4})(.*)$/);
+    if (match) {
+      const digits = match[1];
+      const tail = match[2];
+      if (digits.length === 4 && !tail.startsWith('-')) {
+        val = `SPK-${digits}-${tail}`;
+      }
+    }
+
+    setNoSpk(val);
   };
 
   const handleCancelScan2 = async () => {
@@ -697,9 +720,9 @@ export default function RfidModalManager() {
               </label>
               <input
                 type="text"
-                value={noSpk}
-                onChange={(e) => setNoSpk(e.target.value)}
-                placeholder="Enter work order number..."
+                value={noSpk || 'SPK-'}
+                onChange={handleSpkInputChange}
+                placeholder="e.g. SPK-1234-PROJECT_A"
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-amber-500 font-mono text-stone-900 font-bold"
                 required
                 autoFocus

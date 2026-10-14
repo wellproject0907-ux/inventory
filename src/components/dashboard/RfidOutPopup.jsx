@@ -43,6 +43,27 @@ export default function RfidOutPopup() {
     };
   }, []);
 
+  const handleSpkInputChange = (e) => {
+    let val = e.target.value;
+
+    if (!val.startsWith('SPK-')) {
+      const clean = val.replace(/^SPK-?/i, '');
+      val = 'SPK-' + clean;
+    }
+
+    const rest = val.slice(4);
+    const match = rest.match(/^(\d{1,4})(.*)$/);
+    if (match) {
+      const digits = match[1];
+      const tail = match[2];
+      if (digits.length === 4 && !tail.startsWith('-')) {
+        val = `SPK-${digits}-${tail}`;
+      }
+    }
+
+    setNoSpk(val);
+  };
+
   const handleCancel = async () => {
     if (!pendingOutItem) return;
     try {
@@ -175,13 +196,13 @@ export default function RfidOutPopup() {
         <form onSubmit={handleConfirmOut} className="space-y-3.5 pt-1">
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center gap-1.5">
-              <FileText size={14} className="text-amber-600" /> Nomor SPK (Surat Perintah Kerja):
+              <FileText size={14} className="text-amber-600" /> Work Order (SPK):
             </label>
             <input
               type="text"
-              value={noSpk}
-              onChange={(e) => setNoSpk(e.target.value)}
-              placeholder="Masukkan No. SPK..."
+              value={noSpk || 'SPK-'}
+              onChange={handleSpkInputChange}
+              placeholder="e.g. SPK-1234-PROJECT_A"
               className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-amber-500 font-mono text-stone-900 font-bold"
               required
               autoFocus
