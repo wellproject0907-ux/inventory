@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '@/services/firebase/config';
 import { collection, getDocs, query, orderBy, doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { Boxes, Search, User, Clock, RefreshCw, Scan, FileSpreadsheet, CheckCircle2, AlertCircle, PackageCheck, ChevronRight, X, Layers, Trash2 } from 'lucide-react';
@@ -54,19 +54,41 @@ export default function StockOpnamePage() {
   }, []);
 
   const [highlightedUid, setHighlightedUid] = useState(null);
+  const itemsRef = useRef([]);
 
-  const handleExternalScan = (uid) => {
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  const handleExternalScan = async (uid) => {
     const queryStr = String(uid).trim().toLowerCase();
-    const found = items.find(item =>
-      (item.id && item.id.toLowerCase() === queryStr) ||
-      (item.nfc_uid && item.nfc_uid.toLowerCase() === queryStr) ||
-      (item.sku && item.sku.toLowerCase().includes(queryStr)) ||
-      (item.nama_barang && item.nama_barang.toLowerCase().includes(queryStr))
-    );
+    let currentItems = itemsRef.current;
+
+    if (!currentItems || currentItems.length === 0) {
+      try {
+        const snap = await getDocs(collection(db, 'barang'));
+        currentItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setItems(currentItems);
+      } catch (e) {}
+    }
+
+    const found = currentItems.find(item => {
+      const dbId = String(item.id || '').trim().toLowerCase();
+      const dbUid = String(item.nfc_uid || '').trim().toLowerCase();
+      const dbSku = String(item.sku || '').trim().toLowerCase();
+      const dbName = String(item.nama_barang || '').trim().toLowerCase();
+
+      return dbId === queryStr ||
+             dbUid === queryStr ||
+             dbUid.includes(queryStr) ||
+             queryStr.includes(dbUid) ||
+             dbSku.includes(queryStr) ||
+             dbName.includes(queryStr);
+    });
 
     if (found) {
       setScannedResult({ found: true, data: found });
-      setHighlightedUid(found.nfc_uid);
+      setHighlightedUid(found.nfc_uid || found.id);
       const groupKey = (found.nama_barang || 'Unnamed Material').trim().toLowerCase();
       setExpandedKeys(prev => ({ ...prev, [groupKey]: true }));
       setTimeout(() => setHighlightedUid(null), 4000);
