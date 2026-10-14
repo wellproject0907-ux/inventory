@@ -80,6 +80,10 @@ export default function RfidModalManager() {
         if (typeof window !== 'undefined' && window.triggerInventoryScan) {
           window.triggerInventoryScan(cleanUid);
         }
+      } else if (currentPath === '/stock-opname') {
+        if (typeof window !== 'undefined' && window.triggerStockOpnameScan) {
+          window.triggerStockOpnameScan(cleanUid);
+        }
       }
     } catch (e) {
       console.error('Error handling direct scan UID:', e);
