@@ -42,22 +42,43 @@ export default function RfidModalManager() {
     if (!isActiveTerminal) return;
 
     const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
+    const cleanUid = String(uid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
-    if (currentPath === '/inbound') {
-      setItemData({ id: uid, nfc_uid: uid, needs_naming: true });
-      setActiveModal('scan1');
-    } else if (currentPath === '/outbound') {
-      try {
-        const res = await fetch('/api/barang');
-        if (res.ok) {
-          const docs = await res.json();
-          const found = docs.find(d => String(d.nfc_uid || d.id).toUpperCase() === String(uid).toUpperCase());
-          if (found) {
-            setItemData(found);
-            setActiveModal('scan2');
-          }
+    try {
+      const res = await fetch('/api/barang');
+      let foundItem = null;
+      if (res.ok) {
+        const docs = await res.json();
+        foundItem = docs.find(d => {
+          const dbId = String(d.id || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+          const dbUid = String(d.nfc_uid || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+          return dbId === cleanUid || dbUid === cleanUid;
+        });
+      }
+
+      if (currentPath === '/inbound') {
+        if (foundItem) {
+          // Tag is ALREADY REGISTERED! Show Already Registered Modal on Inbound
+          setItemData(foundItem);
+          setActiveModal('registered');
+          fetchHistory(foundItem.nfc_uid || foundItem.id);
+        } else {
+          // Tag is BRAND NEW! Open Scan 1 Registration Modal
+          setItemData({ id: cleanUid, nfc_uid: cleanUid, needs_naming: true });
+          setActiveModal('scan1');
         }
-      } catch (e) {}
+      } else if (currentPath === '/outbound') {
+        if (foundItem) {
+          // Tag is REGISTERED! Open Scan 2 OUT (SPK) Modal
+          setItemData(foundItem);
+          setActiveModal('scan2');
+        } else {
+          // Tag is UNREGISTERED!
+          alert(`Kartu UID "${cleanUid}" belum terdaftar di database. Silakan registrasikan di menu Inbound terlebih dahulu.`);
+        }
+      }
+    } catch (e) {
+      console.error('Error handling direct scan UID:', e);
     }
   };
 
