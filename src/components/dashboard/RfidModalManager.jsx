@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '@/services/firebase/config';
 import { collection, query, where, onSnapshot, getDocs, getDoc, orderBy, limit, deleteDoc, doc, setDoc, updateDoc, addDoc, serverTimestamp, runTransaction } from 'firebase/firestore';
-import { Tag, Loader2, Check, Search, Truck, X, History, Clock, Sparkles, ArrowDownLeft, FileText, AlertCircle, Users } from 'lucide-react';
+import { Tag, Loader2, Check, Search, Truck, X, History, Clock, Sparkles, ArrowDownLeft, FileText, AlertCircle, Users, User } from 'lucide-react';
 
 export default function RfidModalManager() {
   const tabIdRef = useRef(typeof window !== 'undefined' ? Math.random().toString(36).substring(2, 9) : 'tab');
