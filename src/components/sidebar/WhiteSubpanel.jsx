@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -11,11 +12,46 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ArrowDownLeft,
-  ArrowUpRight
+  ArrowUpRight,
+  Cpu,
+  Wifi,
+  Usb,
+  Cable
 } from 'lucide-react';
+import { connectWebSerial } from '@/services/rfid/webSerialDriver';
 
 export default function WhiteSubpanel({ isCollapsed, onToggle }) {
   const pathname = usePathname();
+  const [rfidMode, setRfidMode] = useState('web_serial');
+  const [usbConnected, setUsbConnected] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('rfid_input_mode') || 'web_serial';
+      setRfidMode(savedMode);
+    }
+  }, []);
+
+  const handleModeChange = (mode) => {
+    setRfidMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('rfid_input_mode', mode);
+    }
+  };
+
+  const handleConnectUsb = async () => {
+    const success = await connectWebSerial((uid) => {
+      if (typeof window !== 'undefined' && window.triggerDirectScanUid) {
+        window.triggerDirectScanUid(uid);
+      }
+    }, (err) => {
+      alert('USB Serial Error: ' + err);
+    });
+
+    if (success) {
+      setUsbConnected(true);
+    }
+  };
 
   const menus = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -81,21 +117,66 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
         </div>
       </div>
 
-      {/* Active Terminal Mode Toggle */}
-      <div className="border-t border-stone-100 pt-3 px-2 mb-3">
-        <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-3 flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold text-stone-700">Active Terminal</p>
-            <p className="text-[10px] text-stone-400">Receive scan popups</p>
+      {/* RFID Hardware Mode Selector */}
+      <div className="border-t border-stone-100 pt-3 px-2 mb-2 space-y-2">
+        <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1">
+              <Cpu size={12} className="text-blue-600" /> RFID Hardware Mode
+            </span>
+            <input
+              type="checkbox"
+              defaultChecked={typeof window !== 'undefined' ? localStorage.getItem('active_terminal') !== 'false' : true}
+              onChange={(e) => {
+                localStorage.setItem('active_terminal', e.target.checked ? 'true' : 'false');
+              }}
+              title="Active Terminal Toggle"
+              className="w-3.5 h-3.5 text-blue-600 rounded accent-blue-600 cursor-pointer"
+            />
           </div>
-          <input
-            type="checkbox"
-            defaultChecked={typeof window !== 'undefined' ? localStorage.getItem('active_terminal') === 'true' : false}
-            onChange={(e) => {
-              localStorage.setItem('active_terminal', e.target.checked ? 'true' : 'false');
-            }}
-            className="w-4 h-4 text-blue-600 rounded accent-blue-600 cursor-pointer"
-          />
+
+          <div className="grid grid-cols-3 gap-1 bg-stone-200/60 p-1 rounded-lg text-[10px] font-bold">
+            <button
+              onClick={() => handleModeChange('web_serial')}
+              className={`py-1 rounded-md transition cursor-pointer flex items-center justify-center gap-1 ${
+                rfidMode === 'web_serial' ? 'bg-white text-blue-600 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+              title="Direct USB Web Serial (Chrome/Edge)"
+            >
+              <Usb size={11} /> USB
+            </button>
+            <button
+              onClick={() => handleModeChange('bridge')}
+              className={`py-1 rounded-md transition cursor-pointer flex items-center justify-center gap-1 ${
+                rfidMode === 'bridge' ? 'bg-white text-blue-600 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+              title="Node.js USB Bridge (bridge.js)"
+            >
+              <Cable size={11} /> Bridge
+            </button>
+            <button
+              onClick={() => handleModeChange('wifi')}
+              className={`py-1 rounded-md transition cursor-pointer flex items-center justify-center gap-1 ${
+                rfidMode === 'wifi' ? 'bg-white text-blue-600 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+              title="ESP32 Wi-Fi Standalone Reader"
+            >
+              <Wifi size={11} /> Wi-Fi
+            </button>
+          </div>
+
+          {rfidMode === 'web_serial' && (
+            <button
+              onClick={handleConnectUsb}
+              className={`w-full py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                usbConnected
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-2xs'
+              }`}
+            >
+              <Usb size={12} /> {usbConnected ? '✅ USB RFID Connected' : '🔌 Connect USB RFID'}
+            </button>
+          )}
         </div>
       </div>
 

@@ -36,6 +36,37 @@ export default function RfidModalManager() {
 
   const [loading, setLoading] = useState(false);
 
+  // Handle direct Web Serial / Local scan event handler
+  const handleDirectScanUid = async (uid) => {
+    const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
+    if (!isActiveTerminal) return;
+
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
+
+    if (currentPath === '/inbound') {
+      setItemData({ id: uid, nfc_uid: uid, needs_naming: true });
+      setActiveModal('scan1');
+    } else if (currentPath === '/outbound') {
+      try {
+        const res = await fetch('/api/barang');
+        if (res.ok) {
+          const docs = await res.json();
+          const found = docs.find(d => String(d.nfc_uid || d.id).toUpperCase() === String(uid).toUpperCase());
+          if (found) {
+            setItemData(found);
+            setActiveModal('scan2');
+          }
+        }
+      } catch (e) {}
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.triggerDirectScanUid = handleDirectScanUid;
+    }
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {

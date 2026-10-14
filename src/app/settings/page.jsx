@@ -103,6 +103,43 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Hardware & RFID Input Configuration Card */}
+      <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-2xs space-y-4">
+        <div>
+          <h3 className="text-sm font-bold text-stone-900">Hardware & RFID Input Mode Configuration</h3>
+          <p className="text-xs text-stone-500 mt-0.5">Choose how RFID card scans are received on this warehouse workstation.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-2">
+            <div className="font-bold text-blue-600 flex items-center gap-1.5">
+              <span>🔌 1. Web Serial USB (Direct)</span>
+            </div>
+            <p className="text-stone-600 text-[11px] leading-relaxed">
+              Connects Google Chrome / Edge directly to USB COM port. Zero bridge required, 1ms instant response.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-2">
+            <div className="font-bold text-blue-600 flex items-center gap-1.5">
+              <span>🖥️ 2. USB Bridge (bridge.js)</span>
+            </div>
+            <p className="text-stone-600 text-[11px] leading-relaxed">
+              Connects to local Node.js bridge script via local socket (localhost:8080).
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-2">
+            <div className="font-bold text-blue-600 flex items-center gap-1.5">
+              <span>📡 3. Wi-Fi Cloud (ESP32)</span>
+            </div>
+            <p className="text-stone-600 text-[11px] leading-relaxed">
+              Receives scans wirelessly over Wi-Fi network from standalone ESP32 readers via Firebase Cloud.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Role Permissions Matrix */}
       <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-2xs">
         <div className="p-5 border-b border-stone-100 flex items-center justify-between">
