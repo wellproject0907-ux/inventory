@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '@/services/firebase/config';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot, addDoc, getDocs, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { subscribeToInventory } from '@/services/firebase/inventoryService';
 import {
   ClipboardCheck,
@@ -14,12 +14,14 @@ import {
   PackageCheck,
   ChevronRight,
   Layers,
-  Play,
   RotateCcw,
   Check,
   AlertTriangle,
   Clock,
-  User
+  User,
+  Save,
+  History,
+  Trash2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -34,29 +36,43 @@ export default function StockOpnamePage() {
   const [auditScannedUids, setAuditScannedUids] = useState(new Set());
   const [lastScannedInfo, setLastScannedInfo] = useState(null);
   const [scanInput, setScanInput] = useState('');
-  const [showAllMaterials, setShowAllMaterials] = useState(true); // Default true: shows all warehouse materials for side-by-side count reconciliation
+  const [showAllMaterials, setShowAllMaterials] = useState(true);
+
+  // Firebase Audit Reports History State
+  const [opnameReports, setOpnameReports] = useState([]);
+  const [savingReport, setSavingReport] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   const itemsRef = useRef([]);
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
 
+  const fetchOpnameReports = async () => {
+    try {
+      const qReports = query(collection(db, 'laporan_opname'), orderBy('timestamp', 'desc'));
+      const snap = await getDocs(qReports);
+      setOpnameReports(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) {
+      console.error('Error fetching opname reports:', e);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeToInventory((fetchedItems) => {
-      // Filter active items in warehouse
       const activeItems = fetchedItems.filter(i => !i.is_completed && i.lifecycle !== 'COMPLETED' && Number(i.stok ?? 1) > 0);
       setItems(activeItems);
       setLoading(false);
     });
 
-    // Set mode to OPNAME
+    fetchOpnameReports();
+
     fetch('/api/system-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'OPNAME' })
     }).catch(err => console.log('Failed to set mode:', err));
 
-    // Listen to real-time hardware scans
     const unsubSettings = onSnapshot(doc(db, 'system', 'settings'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -79,41 +95,6 @@ export default function StockOpnamePage() {
     };
   }, []);
 
-  const handleAuditScanUid = (uid) => {
-    const cleanUid = String(uid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    if (!cleanUid) return;
-
-    // Add UID to Audit Session
-    setAuditScannedUids(prev => {
-      const next = new Set(prev);
-      next.add(cleanUid);
-      return next;
-    });
-
-    const currentItems = itemsRef.current;
-    const found = currentItems.find(i =>
-      String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === cleanUid ||
-      String(i.sku || '').toUpperCase().includes(cleanUid)
-    );
-
-    if (found) {
-      setLastScannedInfo({ found: true, uid: cleanUid, item: found });
-      setHighlightedUid(found.nfc_uid || found.id);
-      // Clean counts: do NOT auto-expand accordion during scan
-    } else {
-      setLastScannedInfo({ found: false, uid: cleanUid });
-    }
-
-    setTimeout(() => setHighlightedUid(null), 4000);
-  };
-
-  const handleManualScanSubmit = (e) => {
-    e.preventDefault();
-    if (!scanInput.trim()) return;
-    handleAuditScanUid(scanInput.trim());
-    setScanInput('');
-  };
-
   // Load saved Stock Opname audit session from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -135,6 +116,39 @@ export default function StockOpnamePage() {
       localStorage.setItem('stock_opname_audit_uids', JSON.stringify(Array.from(auditScannedUids)));
     }
   }, [auditScannedUids]);
+
+  const handleAuditScanUid = (uid) => {
+    const cleanUid = String(uid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    if (!cleanUid) return;
+
+    setAuditScannedUids(prev => {
+      const next = new Set(prev);
+      next.add(cleanUid);
+      return next;
+    });
+
+    const currentItems = itemsRef.current;
+    const found = currentItems.find(i =>
+      String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === cleanUid ||
+      String(i.sku || '').toUpperCase().includes(cleanUid)
+    );
+
+    if (found) {
+      setLastScannedInfo({ found: true, uid: cleanUid, item: found });
+      setHighlightedUid(found.nfc_uid || found.id);
+    } else {
+      setLastScannedInfo({ found: false, uid: cleanUid });
+    }
+
+    setTimeout(() => setHighlightedUid(null), 4000);
+  };
+
+  const handleManualScanSubmit = (e) => {
+    e.preventDefault();
+    if (!scanInput.trim()) return;
+    handleAuditScanUid(scanInput.trim());
+    setScanInput('');
+  };
 
   const handleResetAuditSession = () => {
     if (confirm('Hapus seluruh hasil scan fisik Stock Opname di sesi ini?\n\n(Hanya menghapus hasil scan Opname, TIDAK menghapus data barang di database gudang).')) {
@@ -159,12 +173,84 @@ export default function StockOpnamePage() {
     if (confirm(`Hapus permanen barang "${nama}" (UID: ${uid}) dari database gudang?\n\nData barang akan dihapus dari database.`)) {
       try {
         await deleteDoc(doc(db, 'barang', String(id)));
-        try {
-          await CapacitorNfc.erase();
-        } catch (e) {}
         handleRemoveFromAuditSession(uid);
       } catch (err) {
         alert('Gagal menghapus barang: ' + err.message);
+      }
+    }
+  };
+
+  const handleSaveAuditReportToFirebase = async () => {
+    if (groupedList.length === 0) {
+      alert('Tidak ada data Opname untuk disimpan.');
+      return;
+    }
+
+    try {
+      setSavingReport(true);
+      let totalSystem = 0;
+      let totalPhysical = 0;
+      let totalMissingCount = 0;
+      let totalSurplusCount = 0;
+
+      const reportDetails = groupedList.map(group => {
+        const qtySystem = group.items.length;
+        const qtyPhysical = group.items.filter(i => auditScannedUids.has(String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase())).length;
+        const variance = qtyPhysical - qtySystem;
+
+        totalSystem += qtySystem;
+        totalPhysical += qtyPhysical;
+        if (variance < 0) totalMissingCount += Math.abs(variance);
+        if (variance > 0) totalSurplusCount += variance;
+
+        const missingUids = group.items
+          .filter(i => !auditScannedUids.has(String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()))
+          .map(i => i.nfc_uid || i.id);
+
+        const scannedUids = group.items
+          .filter(i => auditScannedUids.has(String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()))
+          .map(i => i.nfc_uid || i.id);
+
+        return {
+          sku: group.sku,
+          nama_barang: group.nama_barang,
+          supplier: group.supplier,
+          qty_system: qtySystem,
+          qty_physical: qtyPhysical,
+          variance: variance,
+          missing_uids: missingUids,
+          scanned_uids: scannedUids
+        };
+      });
+
+      await addDoc(collection(db, 'laporan_opname'), {
+        timestamp: serverTimestamp(),
+        date_str: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }),
+        warehouse_user: 'Warehouse Admin',
+        total_system: totalSystem,
+        total_physical: totalPhysical,
+        total_missing: totalMissingCount,
+        total_surplus: totalSurplusCount,
+        details: reportDetails
+      });
+
+      setSavingReport(false);
+      setSaveMessage('✅ Laporan Hasil Stock Opname berhasil disimpan ke Firebase!');
+      setTimeout(() => setSaveMessage(''), 4000);
+      fetchOpnameReports();
+    } catch (err) {
+      setSavingReport(false);
+      alert('Gagal menyimpan laporan ke Firebase: ' + err.message);
+    }
+  };
+
+  const handleDeleteReport = async (reportId) => {
+    if (confirm('Hapus arsip laporan Stock Opname ini dari Firebase?')) {
+      try {
+        await deleteDoc(doc(db, 'laporan_opname', reportId));
+        fetchOpnameReports();
+      } catch (e) {
+        alert('Gagal menghapus laporan: ' + e.message);
       }
     }
   };
@@ -176,7 +262,6 @@ export default function StockOpnamePage() {
     (item.no_sj && item.no_sj.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Group items by Material Name
   const groupedMap = {};
   filteredItems.forEach(item => {
     const rawName = (item.nama_barang || 'Unnamed Material').trim();
@@ -202,7 +287,6 @@ export default function StockOpnamePage() {
     groupedMap[key].items.push(item);
   });
 
-  // By default, filter to show ONLY material groups where AT LEAST 1 UID has been scanned in current session
   const groupedList = Object.values(groupedMap).filter(group => {
     if (showAllMaterials) return true;
     return group.items.some(i => auditScannedUids.has(String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()));
@@ -268,18 +352,32 @@ export default function StockOpnamePage() {
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             onClick={handleResetAuditSession}
-            className="flex items-center gap-1.5 text-xs bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold px-4 py-2.5 rounded-xl transition cursor-pointer"
+            className="flex items-center gap-1.5 text-xs bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold px-3.5 py-2.5 rounded-xl transition cursor-pointer"
           >
-            <RotateCcw size={14} /> Reset Audit Scan
+            <RotateCcw size={14} /> Reset Scan
+          </button>
+          <button
+            onClick={handleSaveAuditReportToFirebase}
+            disabled={savingReport}
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
+          >
+            <Save size={16} /> {savingReport ? 'Saving...' : 'Simpan Laporan ke Firebase'}
           </button>
           <button
             onClick={exportAuditToExcel}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
           >
-            <FileSpreadsheet size={16} /> Export Audit Report (.xlsx)
+            <FileSpreadsheet size={16} /> Export Excel (.xlsx)
           </button>
         </div>
       </div>
+
+      {saveMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in">
+          <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+          <span>{saveMessage}</span>
+        </div>
+      )}
 
       {/* Live Physical Audit Scan Input Box */}
       <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-2xs space-y-4">
@@ -350,7 +448,7 @@ export default function StockOpnamePage() {
                   : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-stone-200'
               }`}
             >
-              {showAllMaterials ? '📋 Showing All Materials' : '🔍 Audited Items Only (Default)'}
+              {showAllMaterials ? '📋 Showing All Materials' : '🔍 Audited Items Only'}
             </button>
           </div>
           <div className="relative w-full sm:w-72">
@@ -548,6 +646,81 @@ export default function StockOpnamePage() {
                     </React.Fragment>
                   );
                 })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Firebase Audit Reports History Table */}
+      <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-2xs">
+        <div className="p-5 border-b border-stone-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <History size={18} className="text-blue-600" />
+            <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
+              Arsip Riwayat Laporan Stock Opname (Firebase)
+            </h3>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-stone-100 text-stone-700 border border-stone-200">
+            {opnameReports.length} Laporan Tersimpan
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          {opnameReports.length === 0 ? (
+            <div className="p-8 text-center text-xs text-stone-400">
+              Belum ada arsip laporan opname yang disimpan ke Firebase.
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                <tr>
+                  <th className="p-3.5">Tanggal Audit</th>
+                  <th className="p-3.5">Auditor / Operator</th>
+                  <th className="p-3.5 text-center">Ringkasan (System vs Scan)</th>
+                  <th className="p-3.5 text-center">Hasil Audit (Hilang / Lebih)</th>
+                  <th className="p-3.5 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 text-xs text-stone-800">
+                {opnameReports.map((report) => (
+                  <tr key={report.id} className="hover:bg-stone-50/50 transition">
+                    <td className="p-3.5 font-mono font-bold text-stone-900">
+                      {report.date_str || (report.timestamp?.toDate ? report.timestamp.toDate().toLocaleString() : 'Baru saja')}
+                    </td>
+                    <td className="p-3.5 font-medium text-stone-700">{report.warehouse_user || 'Warehouse Admin'}</td>
+                    <td className="p-3.5 text-center font-semibold text-stone-700">
+                      {report.total_physical || 0} / {report.total_system || 0} Pcs
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {report.total_missing > 0 ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            {report.total_missing} Hilang
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Match (0 Hilang)
+                          </span>
+                        )}
+                        {report.total_surplus > 0 && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            +{report.total_surplus} Lebih
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <button
+                        onClick={() => handleDeleteReport(report.id)}
+                        className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition cursor-pointer shadow-2xs border border-rose-100"
+                        title="Hapus Laporan Arsip ini dari Firebase"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
