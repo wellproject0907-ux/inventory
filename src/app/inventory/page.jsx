@@ -7,7 +7,10 @@ import { Boxes, Search, User, Clock, RefreshCw, Scan, FileSpreadsheet, CheckCirc
 import { CapacitorNfc } from '@capgo/capacitor-nfc';
 import * as XLSX from 'xlsx';
 
+import { useTranslation } from '@/services/languageService';
+
 export default function StockOpnamePage() {
+  const { lang, t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -321,7 +324,7 @@ export default function StockOpnamePage() {
         <div className="p-4 border-b border-stone-100 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Layers size={18} className="text-blue-600" />
-            <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Grouped Material Inventory</h3>
+            <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">{t('inventoryHubTitle')}</h3>
           </div>
           <div className="relative flex-1 md:w-72">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-stone-400">
@@ -331,7 +334,7 @@ export default function StockOpnamePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search material groups..."
+              placeholder={t('searchPlaceholder')}
               className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900"
             />
           </div>
@@ -346,11 +349,11 @@ export default function StockOpnamePage() {
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-20 bg-stone-50 shadow-xs">
                 <tr className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
-                  <th className="p-3.5">Material Name & Base SKU</th>
-                  <th className="p-3.5">Supplier</th>
+                  <th className="p-3.5">{t('materialAndBaseSku')}</th>
+                  <th className="p-3.5">{t('supplier')}</th>
                   <th className="p-3.5 text-center">Total Quantity (UIDs)</th>
                   <th className="p-3.5 text-center">Warehouse Status Summary</th>
-                  <th className="p-3.5 text-right">Action</th>
+                  <th className="p-3.5 text-right">{t('action')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-xs text-stone-800">

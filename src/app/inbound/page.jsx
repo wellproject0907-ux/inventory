@@ -5,9 +5,11 @@ import { db } from '@/services/firebase/config';
 import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { subscribeToInventory } from '@/services/firebase/inventoryService';
 import { CapacitorNfc } from '@capgo/capacitor-nfc';
+import { useTranslation } from '@/services/languageService';
 import { ArrowDownLeft, Search, CheckCircle2, AlertTriangle, Box, Trash2 } from 'lucide-react';
 
 export default function InboundPage() {
+  const { lang, t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,7 +21,6 @@ export default function InboundPage() {
       setLoading(false);
     });
 
-    // Set system mode to INVENTORY
     fetch('/api/system-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -61,9 +62,9 @@ export default function InboundPage() {
           <div className="flex items-center gap-2 text-emerald-600 font-semibold text-xs uppercase tracking-wider mb-1">
             <ArrowDownLeft size={16} /> Inbound & Active Inventory Hub
           </div>
-          <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Inbound (Scan In)</h1>
+          <h1 className="text-2xl font-bold text-stone-900 tracking-tight">{t('inboundHubTitle')}</h1>
           <p className="text-stone-500 text-sm mt-0.5">
-            All scanned incoming items and registered warehouse inventory.
+            {t('inboundHubDesc')}
           </p>
         </div>
       </div>
@@ -78,8 +79,8 @@ export default function InboundPage() {
       <div className="bg-white rounded-2xl border border-stone-200/80 shadow-2xs overflow-hidden">
         <div className="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-base font-bold text-stone-900">Inbound Items List ({filteredItems.length})</h3>
-            <p className="text-xs text-stone-500 mt-0.5">Scanned and registered incoming items in the warehouse</p>
+            <h3 className="text-base font-bold text-stone-900">{t('inboundListTitle')} ({filteredItems.length})</h3>
+            <p className="text-xs text-stone-500 mt-0.5">{t('inboundListDesc')}</p>
           </div>
           <div className="relative w-full sm:w-72">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -87,7 +88,7 @@ export default function InboundPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search material, SKU, UID, or SJ..."
+              placeholder={t('searchPlaceholder')}
               className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-emerald-500 transition"
             />
           </div>
@@ -97,13 +98,13 @@ export default function InboundPage() {
           <table className="w-full text-left border-collapse">
             <thead className="bg-stone-50 text-[11px] font-bold text-stone-500 uppercase tracking-wider border-b border-stone-200">
               <tr>
-                <th className="py-3 px-6">Material Name</th>
-                <th className="py-3 px-6">SKU & UID</th>
-                <th className="py-3 px-6">Supplier</th>
-                <th className="py-3 px-6">SJ & SPK No.</th>
-                <th className="py-3 px-6">Operator</th>
-                <th className="py-3 px-6">Tag Status</th>
-                <th className="py-3 px-6 text-right">Actions</th>
+                <th className="py-3 px-6">{t('materialName')}</th>
+                <th className="py-3 px-6">{t('skuAndUid')}</th>
+                <th className="py-3 px-6">{t('supplier')}</th>
+                <th className="py-3 px-6">{t('sjAndSpk')}</th>
+                <th className="py-3 px-6">{t('operator')}</th>
+                <th className="py-3 px-6">{t('status')}</th>
+                <th className="py-3 px-6 text-right">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs">
@@ -135,11 +136,11 @@ export default function InboundPage() {
                       <td className="py-4 px-6 whitespace-nowrap">
                         {isDepleted ? (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
-                            <AlertTriangle size={12} /> Completed (Out)
+                            <AlertTriangle size={12} /> {t('completedOut')}
                           </span>
                         ) : (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 inline-flex items-center gap-1">
-                            Active (In)
+                            {t('activeInWarehouse')}
                           </span>
                         )}
                       </td>
@@ -147,7 +148,7 @@ export default function InboundPage() {
                         <button
                           onClick={() => handleDeleteItem(item.id, item.nama_barang, item.nfc_uid)}
                           className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition cursor-pointer border border-rose-100 shadow-2xs ml-auto"
-                          title="Delete item and erase tag"
+                          title={t('deleteTitle')}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -158,7 +159,7 @@ export default function InboundPage() {
               ) : (
                 <tr>
                   <td colSpan="7" className="text-center py-12 text-stone-400">
-                    No items in inbound yet. Scan a new NFC tag to perform Scan IN.
+                    No inbound items found.
                   </td>
                 </tr>
               )}

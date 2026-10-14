@@ -23,9 +23,11 @@ import {
   History,
   Trash2
 } from 'lucide-react';
+import { useTranslation } from '@/services/languageService';
 import * as XLSX from 'xlsx';
 
 export default function StockOpnamePage() {
+  const { lang, t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -354,20 +356,20 @@ export default function StockOpnamePage() {
             onClick={handleResetAuditSession}
             className="flex items-center gap-1.5 text-xs bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold px-3.5 py-2.5 rounded-xl transition cursor-pointer"
           >
-            <RotateCcw size={14} /> Reset Scan
+            <RotateCcw size={14} /> {t('resetScan')}
           </button>
           <button
             onClick={handleSaveAuditReportToFirebase}
             disabled={savingReport}
             className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
           >
-            <Save size={16} /> {savingReport ? 'Saving...' : 'Save Audit Report to Firebase'}
+            <Save size={16} /> {savingReport ? 'Saving...' : t('saveReportToFirebase')}
           </button>
           <button
             onClick={exportAuditToExcel}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
           >
-            <FileSpreadsheet size={16} /> Export Excel (.xlsx)
+            <FileSpreadsheet size={16} /> {t('exportExcel')}
           </button>
         </div>
       </div>
@@ -448,7 +450,7 @@ export default function StockOpnamePage() {
                   : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-stone-200'
               }`}
             >
-              {showAllMaterials ? '📋 Showing All Materials' : '🔍 Audited Items Only'}
+              {showAllMaterials ? `📋 ${t('showingAllMaterials')}` : `🔍 ${t('auditedItemsOnly')}`}
             </button>
           </div>
           <div className="relative w-full sm:w-72">
@@ -457,7 +459,7 @@ export default function StockOpnamePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search material or SKU..."
+              placeholder={t('searchPlaceholder')}
               className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:border-blue-500 text-stone-900"
             />
           </div>
@@ -469,22 +471,22 @@ export default function StockOpnamePage() {
           ) : groupedList.length === 0 ? (
             <div className="p-12 text-center text-xs text-stone-500 space-y-2">
               <PackageCheck size={32} className="mx-auto text-stone-300" />
-              <p className="font-bold text-stone-700 text-sm">No Audit Scans in Current Session</p>
+              <p className="font-bold text-stone-700 text-sm">{t('noAuditScans')}</p>
               <p className="text-stone-400 max-w-md mx-auto leading-relaxed">
-                Please tap RFID cards on the reader to reconcile physical inventory with system records.
+                {t('noAuditScansDesc')}
               </p>
             </div>
           ) : (
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-20 bg-stone-50 shadow-xs">
                 <tr className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
-                  <th className="p-3.5">Material Name & Base SKU</th>
-                  <th className="p-3.5">Supplier</th>
-                  <th className="p-3.5 text-center">Qty System</th>
-                  <th className="p-3.5 text-center">Qty Physical (Audit)</th>
-                  <th className="p-3.5 text-center">Variance</th>
-                  <th className="p-3.5 text-center">Audit Status</th>
-                  <th className="p-3.5 text-right">Action</th>
+                  <th className="p-3.5">{t('materialAndBaseSku')}</th>
+                  <th className="p-3.5">{t('supplier')}</th>
+                  <th className="p-3.5 text-center">{t('qtySystem')}</th>
+                  <th className="p-3.5 text-center">{t('qtyPhysical')}</th>
+                  <th className="p-3.5 text-center">{t('variance')}</th>
+                  <th className="p-3.5 text-center">{t('auditStatus')}</th>
+                  <th className="p-3.5 text-right">{t('action')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-xs text-stone-800">
@@ -496,20 +498,20 @@ export default function StockOpnamePage() {
 
                   let statusBadge = (
                     <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
-                      <CheckCircle2 size={12} /> MATCH (IN STOCK)
+                      <CheckCircle2 size={12} /> {t('matchInStock')}
                     </span>
                   );
 
                   if (variance < 0) {
                     statusBadge = (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 inline-flex items-center gap-1">
-                        <AlertCircle size={12} /> MISSING ({variance} Units)
+                        <AlertCircle size={12} /> {t('missing')} ({variance} Pcs)
                       </span>
                     );
                   } else if (variance > 0) {
                     statusBadge = (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
-                        <AlertTriangle size={12} /> SURPLUS (+{variance} Units)
+                        <AlertTriangle size={12} /> {t('surplus')} (+{variance} Pcs)
                       </span>
                     );
                   }

@@ -5,6 +5,7 @@ import { db } from '@/services/firebase/config';
 import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { subscribeToInventory } from '@/services/firebase/inventoryService';
 import { CapacitorNfc } from '@capgo/capacitor-nfc';
+import { useTranslation } from '@/services/languageService';
 import {
   ArrowUpRight,
   Search,
@@ -14,11 +15,11 @@ import {
   ChevronRight,
   Trash2,
   Clock,
-  User,
-  Package
+  User
 } from 'lucide-react';
 
 export default function OutboundPage() {
+  const { lang, t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,13 +38,11 @@ export default function OutboundPage() {
 
   useEffect(() => {
     const unsubscribe = subscribeToInventory((fetchedItems) => {
-      // Filter items that have been checked out (Stock 0 or lifecycle completed / has SPK)
       const outboundItems = fetchedItems.filter(item => Number(item.stok ?? 1) === 0 || item.no_spk || item.lifecycle === 'COMPLETED');
       setItems(outboundItems);
       setLoading(false);
     });
 
-    // Set system mode to INVENTORY
     fetch('/api/system-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -76,7 +75,7 @@ export default function OutboundPage() {
     if (!ts) return '-';
     try {
       const date = ts.toDate ? ts.toDate() : new Date(ts);
-      return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+      return date.toLocaleString(lang === 'id' ? 'id-ID' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' });
     } catch (e) {
       return '-';
     }
@@ -90,7 +89,6 @@ export default function OutboundPage() {
     item.no_sj?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Group items by Material Name
   const groupedMap = {};
   filteredItems.forEach(item => {
     const rawName = (item.nama_barang || 'Unnamed Item').trim();
@@ -130,9 +128,9 @@ export default function OutboundPage() {
           <div className="flex items-center gap-2 text-amber-600 font-semibold text-xs uppercase tracking-wider mb-1">
             <ArrowUpRight size={16} /> Outbound & Scan Out Hub
           </div>
-          <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Outbound (Scan Out)</h1>
+          <h1 className="text-2xl font-bold text-stone-900 tracking-tight">{t('outboundHubTitle')}</h1>
           <p className="text-stone-500 text-sm mt-0.5">
-            Monitor and manage all checked-out warehouse items grouped by material with timestamps.
+            {t('outboundHubDesc')}
           </p>
         </div>
       </div>
@@ -155,8 +153,8 @@ export default function OutboundPage() {
       <div className="bg-white rounded-2xl border border-stone-200/80 shadow-2xs overflow-hidden">
         <div className="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-base font-bold text-stone-900">Grouped Outbound Materials ({groupedList.length})</h3>
-            <p className="text-xs text-stone-500 mt-0.5">Checked-out material groups and completed Scan OUT cycles</p>
+            <h3 className="text-base font-bold text-stone-900">{t('outboundListTitle')} ({groupedList.length})</h3>
+            <p className="text-xs text-stone-500 mt-0.5">{t('outboundListDesc')}</p>
           </div>
           <div className="relative w-full sm:w-72">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -164,7 +162,7 @@ export default function OutboundPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search material, SKU, UID, or SPK..."
+              placeholder={t('searchPlaceholder')}
               className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-amber-500 transition"
             />
           </div>
@@ -174,18 +172,17 @@ export default function OutboundPage() {
           <table className="w-full text-left border-collapse">
             <thead className="bg-stone-50 text-[11px] font-bold text-stone-500 uppercase tracking-wider border-b border-stone-200">
               <tr>
-                <th className="py-3 px-6">Material Name & Base SKU</th>
-                <th className="py-3 px-6">Supplier</th>
-                <th className="py-3 px-6 text-center">Total Qty OUT</th>
-                <th className="py-3 px-6">Latest Outbound Timestamp</th>
-                <th className="py-3 px-6">Status</th>
-                <th className="py-3 px-6 text-right">Action</th>
+                <th className="py-3 px-6">{t('materialAndDetails')}</th>
+                <th className="py-3 px-6">{t('supplier')}</th>
+                <th className="py-3 px-6 text-center">{t('totalQtyOut')}</th>
+                <th className="py-3 px-6">{t('status')}</th>
+                <th className="py-3 px-6 text-right">{t('action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="text-center py-12 text-stone-400">Loading outbound items...</td>
+                  <td colSpan="5" className="text-center py-12 text-stone-400">Loading outbound items...</td>
                 </tr>
               ) : groupedList.length > 0 ? (
                 groupedList.map((group) => {
@@ -208,20 +205,18 @@ export default function OutboundPage() {
                             <ChevronRight size={14} className={`text-stone-400 transition-transform ${isExpanded ? 'rotate-90 text-amber-600' : ''}`} />
                           </p>
                           <p className="font-mono text-[11px] text-amber-600">{group.sku}</p>
+                          <p className="text-[10px] text-stone-500 font-mono mt-1 flex items-center gap-1">
+                            <Clock size={11} className="text-amber-600 shrink-0" />
+                            <span>Out: {formatTimestamp(latestOutItem?.scan_out_at)}</span>
+                          </p>
                         </td>
                         <td className="py-4 px-6 text-stone-600 font-medium">{group.supplier}</td>
                         <td className="py-4 px-6 text-center font-bold text-amber-600">
                           {group.items.length} Pcs OUT
                         </td>
-                        <td className="py-4 px-6 font-mono text-[11px] text-stone-700">
-                          <span className="flex items-center gap-1.5">
-                            <Clock size={12} className="text-amber-600" />
-                            {formatTimestamp(latestOutItem?.scan_out_at)}
-                          </span>
-                        </td>
                         <td className="py-4 px-6 whitespace-nowrap">
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
-                            <AlertTriangle size={12} /> Checked Out (Out)
+                            <AlertTriangle size={12} /> {t('checkedOut')}
                           </span>
                         </td>
                         <td className="py-4 px-6 text-right whitespace-nowrap">
@@ -230,7 +225,7 @@ export default function OutboundPage() {
                             onClick={(e) => { e.stopPropagation(); toggleExpand(group.key); }}
                             className="bg-stone-100 hover:bg-stone-200 text-stone-700 px-3 py-1.5 rounded-xl font-semibold text-xs transition inline-flex items-center gap-1 ml-auto cursor-pointer"
                           >
-                            {isExpanded ? 'Hide UIDs' : 'View UIDs'} <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                            {isExpanded ? t('hideUIDs') : t('viewUIDs')} <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                           </button>
                         </td>
                       </tr>
@@ -238,7 +233,7 @@ export default function OutboundPage() {
                       {/* Accordion Dropdown Breakdown */}
                       {isExpanded && (
                         <tr className="bg-stone-50/80 animate-fade-in">
-                          <td colSpan="6" className="p-4">
+                          <td colSpan="5" className="p-4">
                             <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3 shadow-inner">
                               <h4 className="text-[11px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-2">
                                 <Layers size={14} className="text-amber-600" /> Individual Outbound UIDs Breakdown ({group.items.length})
@@ -255,7 +250,7 @@ export default function OutboundPage() {
                                           UID: {item.nfc_uid}
                                         </code>
                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                          CHECKED OUT
+                                          {t('checkedOut')}
                                         </span>
                                       </div>
                                       <p className="text-[11px] text-stone-600 font-mono">
@@ -279,7 +274,7 @@ export default function OutboundPage() {
                                       <button
                                         onClick={() => handleDeleteItem(item.id, item.nama_barang, item.nfc_uid)}
                                         className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition cursor-pointer border border-rose-100 shadow-2xs shrink-0"
-                                        title="Delete item and erase tag"
+                                        title={t('deleteTitle')}
                                       >
                                         <Trash2 size={13} />
                                       </button>
@@ -296,7 +291,7 @@ export default function OutboundPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="6" className="text-center py-12 text-stone-400">
+                  <td colSpan="5" className="text-center py-12 text-stone-400">
                     No outbound items yet. Perform Scan OUT on an active item to see it here.
                   </td>
                 </tr>

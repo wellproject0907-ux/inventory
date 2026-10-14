@@ -21,13 +21,18 @@ import {
   Globe
 } from 'lucide-react';
 import { connectWebSerial, autoConnectWebSerial } from '@/services/rfid/webSerialDriver';
-import { getCurrentLanguage, setLanguage } from '@/services/languageService';
+import { getCurrentLanguage, setLanguage, useTranslation } from '@/services/languageService';
 
 export default function WhiteSubpanel({ isCollapsed, onToggle }) {
   const pathname = usePathname();
+  const { lang, t } = useTranslation();
   const [rfidMode, setRfidMode] = useState('web_serial');
   const [usbConnected, setUsbConnected] = useState(false);
   const [appLang, setAppLang] = useState('en');
+
+  useEffect(() => {
+    setAppLang(lang);
+  }, [lang]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -75,13 +80,13 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
   };
 
   const menus = [
-    { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { label: 'Inventory', href: '/inventory', icon: Boxes },
-    { label: 'Stock Opname', href: '/stock-opname', icon: ClipboardCheck },
-    { label: 'Inbound', href: '/inbound', icon: ArrowDownLeft },
-    { label: 'Outbound', href: '/outbound', icon: ArrowUpRight },
-    { label: 'Master Data', href: '/master-data', icon: Database },
-    { label: 'Settings & Roles', href: '/settings', icon: Settings },
+    { label: t('dashboard'), href: '/', icon: LayoutDashboard },
+    { label: t('inventory'), href: '/inventory', icon: Boxes },
+    { label: t('stockOpname'), href: '/stock-opname', icon: ClipboardCheck },
+    { label: t('inbound'), href: '/inbound', icon: ArrowDownLeft },
+    { label: t('outbound'), href: '/outbound', icon: ArrowUpRight },
+    { label: t('masterData'), href: '/master-data', icon: Database },
+    { label: t('settings'), href: '/settings', icon: Settings },
   ];
 
   if (isCollapsed) {
