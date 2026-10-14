@@ -2,41 +2,57 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/services/firebase/config';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { ArrowUpRight, Search, Truck, FileText } from 'lucide-react';
+import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { subscribeToInventory } from '@/services/firebase/inventoryService';
+import { CapacitorNfc } from '@capgo/capacitor-nfc';
+import { ArrowUpRight, Search, CheckCircle2, AlertTriangle, Box, Trash2 } from 'lucide-react';
 
 export default function OutboundPage() {
-  const [outboundItems, setOutboundItems] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const fetchOutbound = async () => {
-      try {
-        setLoading(true);
-        const q = query(collection(db, 'riwayat_transaksi'), where('tipe', '==', 'OUT'), orderBy('timestamp', 'desc'));
-        const snap = await getDocs(q);
-        setOutboundItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (err) {
-        console.error('Error fetching outbound history:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchOutbound();
+    const unsubscribe = subscribeToInventory((fetchedItems) => {
+      // Filter items that have been checked out (Stock 0 or lifecycle completed / has SPK)
+      const outboundItems = fetchedItems.filter(item => Number(item.stok ?? 1) === 0 || item.no_spk || item.lifecycle === 'COMPLETED');
+      setItems(outboundItems);
+      setLoading(false);
+    });
 
-    // Set system mode to INVENTORY so scans are processed correctly
+    // Set system mode to INVENTORY
     fetch('/api/system-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'INVENTORY' })
     }).catch(err => console.log('Failed to set mode:', err));
+
+    return () => {
+      if (unsubscribe && typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, []);
 
-  const filtered = outboundItems.filter(item =>
+  const handleDeleteItem = async (id, nama, uid) => {
+    if (confirm(`Delete item "${nama}" (UID: ${uid})? Data will be deleted and NTAG card erased for reuse.`)) {
+      try {
+        await deleteDoc(doc(db, 'barang', String(id)));
+        try {
+          await CapacitorNfc.erase();
+        } catch (e) {}
+        setMessage(`🗑️ Successfully deleted "${nama}". Tag ready for reuse.`);
+      } catch (err) {
+        alert('Failed to delete item: ' + err.message);
+      }
+    }
+  };
+
+  const filteredItems = items.filter(item =>
     item.nama_barang?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.nfc_uid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.no_spk?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -45,20 +61,27 @@ export default function OutboundPage() {
       <div className="bg-white p-6 rounded-2xl border border-stone-200/80 shadow-2xs flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 text-amber-600 font-semibold text-xs uppercase tracking-wider mb-1">
-            <ArrowUpRight size={16} /> Outbound Management
+            <ArrowUpRight size={16} /> Outbound & Scan Out Hub
           </div>
           <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Outbound (Scan Out)</h1>
           <p className="text-stone-500 text-sm mt-0.5">
-            Monitor and manage all outgoing warehouse shipments and Work Order (SPK) confirmations.
+            Monitor and manage all checked-out warehouse items and Scan OUT confirmations.
           </p>
         </div>
       </div>
 
+      {message && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+          <span>{message}</span>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-stone-200/80 shadow-2xs overflow-hidden">
         <div className="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-base font-bold text-stone-900">Outbound History ({filtered.length})</h3>
-            <p className="text-xs text-stone-500 mt-0.5">List of all checked-out items with Work Order (SPK)</p>
+            <h3 className="text-base font-bold text-stone-900">Outbound Items List ({filteredItems.length})</h3>
+            <p className="text-xs text-stone-500 mt-0.5">Checked-out items and completed Scan OUT cycles</p>
           </div>
           <div className="relative w-full sm:w-72">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -66,7 +89,7 @@ export default function OutboundPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search SKU, name, or SPK no..."
+              placeholder="Search material, SKU, UID, or SPK..."
               className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-amber-500 transition"
             />
           </div>
@@ -78,32 +101,57 @@ export default function OutboundPage() {
               <tr>
                 <th className="py-3 px-6">Material Name</th>
                 <th className="py-3 px-6">SKU & UID</th>
-                <th className="py-3 px-6">Work Order (SPK)</th>
+                <th className="py-3 px-6">Supplier</th>
+                <th className="py-3 px-6">SJ & SPK No.</th>
                 <th className="py-3 px-6">Operator</th>
-                <th className="py-3 px-6">Time</th>
+                <th className="py-3 px-6">Status</th>
+                <th className="py-3 px-6 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-12 text-stone-400">Loading outbound records...</td>
+                  <td colSpan="7" className="text-center py-12 text-stone-400">Loading outbound items...</td>
                 </tr>
-              ) : filtered.length > 0 ? (
-                filtered.map((item) => (
+              ) : filteredItems.length > 0 ? (
+                filteredItems.map((item) => (
                   <tr key={item.id} className="hover:bg-stone-50/50 transition">
                     <td className="py-4 px-6 font-bold text-stone-900">{item.nama_barang || 'Unnamed Item'}</td>
                     <td className="py-4 px-6">
                       <p className="font-mono font-bold text-amber-600">{item.sku || '-'}</p>
                       <p className="text-[10px] text-stone-400 font-mono">UID: {item.nfc_uid}</p>
                     </td>
-                    <td className="py-4 px-6 font-mono font-semibold text-stone-800">{item.no_spk || '-'}</td>
-                    <td className="py-4 px-6 text-stone-600">{item.warehouse_user || 'Warehouse Admin'}</td>
-                    <td className="py-4 px-6 text-stone-500">{item.timestamp?.toDate ? item.timestamp.toDate().toLocaleString() : 'Just now'}</td>
+                    <td className="py-4 px-6 text-stone-600">{item.kategori || 'General'}</td>
+                    <td className="py-4 px-6 font-mono text-stone-600 text-[11px] whitespace-nowrap">
+                      SJ: <span className="font-semibold text-stone-800">{item.no_sj || '-'}</span><br/>
+                      SPK: <span className="font-semibold text-stone-800">{item.no_spk || '-'}</span>
+                    </td>
+                    <td className="py-4 px-6 text-stone-600 font-medium">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-stone-100 text-stone-700 border border-stone-200">
+                        {item.warehouse_user || 'Warehouse Admin'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
+                        <AlertTriangle size={12} /> Checked Out (Out)
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => handleDeleteItem(item.id, item.nama_barang, item.nfc_uid)}
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg font-semibold text-xs transition cursor-pointer inline-flex items-center gap-1 ml-auto"
+                        title="Delete item and erase tag"
+                      >
+                        <Trash2 size={13} /> Delete & Erase
+                      </button>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="text-center py-12 text-stone-400">No outbound transaction records found.</td>
+                  <td colSpan="7" className="text-center py-12 text-stone-400">
+                    No outbound items yet. Perform Scan OUT on an active item to see it here.
+                  </td>
                 </tr>
               )}
             </tbody>
