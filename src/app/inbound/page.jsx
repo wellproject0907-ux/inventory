@@ -97,6 +97,16 @@ export default function InboundPage() {
     }
   };
 
+  const formatTimeOnly = (ts) => {
+    if (!ts) return '-';
+    try {
+      const date = ts.toDate ? ts.toDate() : new Date(ts);
+      return date.toLocaleTimeString(lang === 'id' ? 'id-ID' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    } catch (e) {
+      return '-';
+    }
+  };
+
   const filteredItems = items.filter(item =>
     item.nama_barang?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.nfc_uid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -152,6 +162,8 @@ export default function InboundPage() {
         no_sj: sjRaw,
         supplier: resolvedSupplier,
         operator: item.warehouse_user_in || item.warehouse_user || 'Warehouse Admin',
+        latestScanTs: 0,
+        latestScanDate: null,
         items: [],
         materialMap: {}
       };
@@ -159,6 +171,15 @@ export default function InboundPage() {
 
     const sjGroup = dateGroup.sjMap[sjKey];
     sjGroup.items.push(item);
+
+    const itemTs = item.scan_in_at?.toDate
+      ? item.scan_in_at.toDate().getTime()
+      : (item.scan_in_at ? new Date(item.scan_in_at).getTime() : (item.created_at?.toDate ? item.created_at.toDate().getTime() : Date.now()));
+
+    if (itemTs > sjGroup.latestScanTs) {
+      sjGroup.latestScanTs = itemTs;
+      sjGroup.latestScanDate = item.scan_in_at || item.created_at;
+    }
 
     // Level 3: Group by Material Name
     const matRaw = (item.nama_barang || 'Unnamed Item').trim();
@@ -263,7 +284,7 @@ export default function InboundPage() {
               ) : dateList.length > 0 ? (
                 dateList.map((dateGroup) => {
                   const isDateExpanded = !!expandedDates[dateGroup.dateSortKey];
-                  const sjList = Object.values(dateGroup.sjMap);
+                  const sjList = Object.values(dateGroup.sjMap).sort((a, b) => b.latestScanTs - a.latestScanTs);
 
                   return (
                     <React.Fragment key={dateGroup.dateSortKey}>
@@ -320,6 +341,11 @@ export default function InboundPage() {
                                               <span className="text-stone-300">|</span>
                                               <span className="bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 text-[11px] font-sans">
                                                 🏢 {sjGroup.supplier}
+                                              </span>
+                                              <span className="text-stone-300">|</span>
+                                              <span className="text-stone-600 font-mono text-[11px] flex items-center gap-1 font-semibold">
+                                                <Clock size={12} className="text-emerald-600 shrink-0" />
+                                                <span>{formatTimeOnly(sjGroup.latestScanDate)}</span>
                                               </span>
                                               <ChevronRight size={14} className={`text-stone-400 transition-transform ${isSjExpanded ? 'rotate-90 text-emerald-600' : ''}`} />
                                             </p>
