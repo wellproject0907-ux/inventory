@@ -132,7 +132,18 @@ export default function RfidModalManager() {
 
       const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
 
-      // PRIORITAS 2: Already Registered - Only allowed on /outbound page
+      // On Inbound: Show Already Registered Modal if tag is tapped again
+      if (currentPath === '/inbound') {
+        const regDoc = docs.find(d => d.needs_already_registered_popup === true);
+        if (regDoc) {
+          setItemData(regDoc);
+          setActiveModal('registered');
+          fetchHistory(regDoc.nfc_uid);
+          return;
+        }
+      }
+
+      // On Outbound: Show Already Registered or Scan 2 OUT (needs_spk)
       if (currentPath === '/outbound') {
         const regDoc = docs.find(d => d.needs_already_registered_popup === true);
         if (regDoc) {
@@ -142,7 +153,6 @@ export default function RfidModalManager() {
           return;
         }
 
-        // PRIORITAS 3: Scan 2 - OUT (needs_spk) - Only allowed on /outbound page
         const outDoc = docs.find(d => d.needs_spk === true);
         if (outDoc) {
           setItemData(outDoc);

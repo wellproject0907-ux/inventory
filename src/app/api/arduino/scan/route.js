@@ -45,9 +45,18 @@ export async function POST(req) {
 
     const finalUser = warehouse_user || 'Test Operator';
 
-    // === FULL BYPASS OPERATOR AUTH FOR TESTING ===
-    const docRef = doc(db, 'barang', cleanUid);
-    const docSnap = await getDoc(docRef);
+    // === Robust Document Lookup by cleanUid ID or nfc_uid field ===
+    let docRef = doc(db, 'barang', cleanUid);
+    let docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      const q = query(collection(db, 'barang'), where('nfc_uid', '==', cleanUid));
+      const qSnap = await getDocs(q);
+      if (!qSnap.empty) {
+        docSnap = qSnap.docs[0];
+        docRef = doc(db, 'barang', docSnap.id);
+      }
+    }
 
     let currentMode = 'INVENTORY';
     try {
@@ -245,29 +254,33 @@ export async function POST(req) {
         await updateDoc(docRef, {
           needs_already_registered_popup: true,
           locked_by_tab: null,
-          updated_at: serverTimestamp()
+          updated_at: serverTimestamp(),
+          scan_time: Date.now()
         });
 
         return NextResponse.json({
           success: false,
           error: 'ALREADY_REGISTERED',
-          message: `Ditolak: Kartu sudah teregister (Siklus In & Out telah selesai).`
+          message: `Ditolak: Kartu UID "${cleanUid}" sudah teregister (Siklus In & Out telah selesai).`,
+          item: itemData
         }, { status: 400 });
       }
 
-      if (itemData.lifecycle === 'IN') {
+      if (itemData.lifecycle === 'IN' || Number(itemData.stok ?? 0) > 0) {
         await updateDoc(docRef, {
           needs_spk: true,
+          needs_already_registered_popup: true,
           needs_operator_auth: false,
           locked_by_tab: null,
-          updated_at: serverTimestamp()
+          updated_at: serverTimestamp(),
+          scan_time: Date.now()
         });
 
         return NextResponse.json({
           success: true,
           action: 'OUT',
           needs_spk: true,
-          message: 'Scan 2 terdeteksi: Menunggu konfirmasi No. SPK',
+          message: `Scan 2 terdeteksi untuk "${itemData.nama_barang}": Menunggu konfirmasi No. SPK`,
           item: itemData
         });
       }
