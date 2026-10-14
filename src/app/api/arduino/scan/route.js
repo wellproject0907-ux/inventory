@@ -28,6 +28,13 @@ export async function POST(req) {
         const qOpSnap = await getDocs(qOp);
         if (!qOpSnap.empty) {
           opDocSnap = qOpSnap.docs[0];
+        } else {
+          const allOpSnap = await getDocs(collection(db, 'operator'));
+          const foundOp = allOpSnap.docs.find(d => {
+            const storedUid = String(d.data().nfc_uid || d.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            return storedUid === cleanUid;
+          });
+          if (foundOp) opDocSnap = foundOp;
         }
       }
 

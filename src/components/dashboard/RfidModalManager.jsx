@@ -36,6 +36,28 @@ export default function RfidModalManager() {
 
   const [loading, setLoading] = useState(false);
 
+  const checkIsOperatorCard = async (cleanUid) => {
+    try {
+      const opDocRef = doc(db, 'operator', cleanUid);
+      const opDocSnap = await getDoc(opDocRef);
+      if (opDocSnap.exists()) return opDocSnap.data();
+
+      const qOp = query(collection(db, 'operator'), where('nfc_uid', '==', cleanUid));
+      const qOpSnap = await getDocs(qOp);
+      if (!qOpSnap.empty) return qOpSnap.docs[0].data();
+
+      const allOpSnap = await getDocs(collection(db, 'operator'));
+      const foundOp = allOpSnap.docs.find(d => {
+        const storedUid = String(d.data().nfc_uid || d.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        return storedUid === cleanUid;
+      });
+      if (foundOp) return foundOp.data();
+    } catch (e) {
+      console.error('Error checking operator card:', e);
+    }
+    return null;
+  };
+
   // Handle direct Web Serial / Local scan event handler
   const handleDirectScanUid = async (uid) => {
     const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
@@ -45,28 +67,25 @@ export default function RfidModalManager() {
     const cleanUid = String(uid).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
     // STRICT OPERATOR CARD CHECK: If UID is an Operator Card, authorize operator and BLOCK Scan IN / Scan OUT!
-    try {
-      const opDocRef = doc(db, 'operator', cleanUid);
-      const opDocSnap = await getDoc(opDocRef);
-      if (opDocSnap.exists()) {
-        const opData = opDocSnap.data();
-        const opName = opData.nama_operator || opData.nama || 'Operator';
-        const opRole = opData.role || 'Warehouse Staff';
-        setActiveOperator({ name: opName, role: opRole });
-        try {
-          await updateDoc(doc(db, 'system', 'settings'), {
-            active_operator_name: opName,
-            active_operator_role: opRole,
-            active_operator_uid: cleanUid,
-            updated_at: serverTimestamp()
-          });
-        } catch (err) {}
-        // Strictly BLOCK Scan IN and Scan OUT popups for Operator Cards, and open Operator Registered Modal!
-        setItemData({ nfc_uid: cleanUid, nama_operator: opName, role: opRole });
-        setActiveModal('operator_registered_popup');
-        return;
-      }
-    } catch (e) {}
+    const opData = await checkIsOperatorCard(cleanUid);
+    if (opData) {
+      const opName = opData.nama_operator || opData.nama || 'Operator';
+      const opRole = opData.role || 'Warehouse Staff';
+      setActiveOperator({ name: opName, role: opRole });
+      try {
+        await updateDoc(doc(db, 'system', 'settings'), {
+          active_operator_name: opName,
+          active_operator_role: opRole,
+          active_operator_uid: cleanUid,
+          updated_at: serverTimestamp()
+        });
+      } catch (err) {}
+
+      // Strictly BLOCK Scan IN and Scan OUT popups for Operator Cards, and open Operator Registered Modal!
+      setItemData({ nfc_uid: cleanUid, nama_operator: opName, role: opRole });
+      setActiveModal('operator_registered_popup');
+      return;
+    }
 
     try {
       const res = await fetch('/api/barang');
@@ -190,23 +209,19 @@ export default function RfidModalManager() {
         }
 
         // UNIVERSAL OPERATOR CARD CHECK: Open Operator Registered Popup across ALL TABS!
-        try {
-          const opDocRef = doc(db, 'operator', cleanUid);
-          const opDocSnap = await getDoc(opDocRef);
-          if (opDocSnap.exists()) {
-            const opData = opDocSnap.data();
-            const opName = opData.nama_operator || opData.nama || 'Operator';
-            const opRole = opData.role || 'Warehouse Staff';
+        const opData = await checkIsOperatorCard(cleanUid);
+        if (opData) {
+          const opName = opData.nama_operator || opData.nama || 'Operator';
+          const opRole = opData.role || 'Warehouse Staff';
 
-            setActiveOperator({ name: opName, role: opRole });
-            setItemData({ nfc_uid: cleanUid, nama_operator: opName, role: opRole });
-            setActiveModal('operator_registered_popup');
+          setActiveOperator({ name: opName, role: opRole });
+          setItemData({ nfc_uid: cleanUid, nama_operator: opName, role: opRole });
+          setActiveModal('operator_registered_popup');
 
-            // Clear active scan in Firestore so no product modal opens
-            updateDoc(doc(db, 'system', 'active_scan'), { needs_naming: false, claimed: true }).catch(() => {});
-            return;
-          }
-        } catch (e) {}
+          // Clear active scan in Firestore so no product modal opens
+          updateDoc(doc(db, 'system', 'active_scan'), { needs_naming: false, claimed: true }).catch(() => {});
+          return;
+        }
 
         if (isFresh && data.needs_naming && !data.claimed) {
           const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
