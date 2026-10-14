@@ -58,6 +58,9 @@ export default function StockOpnamePage() {
 
   useEffect(() => {
     itemsRef.current = items;
+    if (typeof window !== 'undefined') {
+      window.triggerInventoryScan = (uid) => handleExternalScan(uid);
+    }
   }, [items]);
 
   const handleExternalScan = async (uid) => {

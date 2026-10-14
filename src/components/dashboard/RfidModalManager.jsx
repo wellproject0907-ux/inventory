@@ -76,6 +76,10 @@ export default function RfidModalManager() {
           // Tag is UNREGISTERED!
           alert(`Kartu UID "${cleanUid}" belum terdaftar di database. Silakan registrasikan di menu Inbound terlebih dahulu.`);
         }
+      } else if (currentPath === '/inventory') {
+        if (typeof window !== 'undefined' && window.triggerInventoryScan) {
+          window.triggerInventoryScan(cleanUid);
+        }
       }
     } catch (e) {
       console.error('Error handling direct scan UID:', e);
