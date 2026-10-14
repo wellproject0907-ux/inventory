@@ -75,7 +75,44 @@ export default function RfidModalManager() {
       }
     });
 
-    // Robust polling via Next.js API route (/api/barang) to bypass network/firewall blocks on Firestore WebSockets
+    // Listen to active scan real-time event for instant popups (0.something seconds response)
+    const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), async (docSnap) => {
+      const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
+      if (!isActiveTerminal) return;
+
+      if (docSnap.exists()) {
+        const scanData = docSnap.data();
+        if (scanData && scanData.uid) {
+          try {
+            const res = await fetch('/api/barang');
+            if (res.ok) {
+              const docs = await res.json();
+              const inDoc = docs.find(d => d.needs_naming === true);
+              if (inDoc && activeModal !== 'scan1') {
+                setItemData(inDoc);
+                setActiveModal('scan1');
+                return;
+              }
+              const regDoc = docs.find(d => d.needs_already_registered_popup === true);
+              if (regDoc && activeModal !== 'registered') {
+                setItemData(regDoc);
+                setActiveModal('registered');
+                fetchHistory(regDoc.nfc_uid);
+                return;
+              }
+              const outDoc = docs.find(d => d.needs_spk === true && !d.needs_naming);
+              if (outDoc && activeModal !== 'scan2') {
+                setItemData(outDoc);
+                setActiveModal('scan2');
+                return;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    });
+
+    // High-speed polling (every 400ms) as fallback for instant popup rendering
     const pollInterval = setInterval(async () => {
       try {
         const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
@@ -110,10 +147,11 @@ export default function RfidModalManager() {
           return;
         }
       } catch (e) {}
-    }, 2000);
+    }, 400);
 
     return () => {
       unsubSettings();
+      unsubActiveScan();
       clearInterval(pollInterval);
     };
   }, [pendingAuthUid, activeModal]);
