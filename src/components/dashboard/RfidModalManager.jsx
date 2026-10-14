@@ -224,19 +224,21 @@ export default function RfidModalManager() {
           return;
         }
 
-        // UNIVERSAL OPERATOR CARD CHECK: Open Operator Registered Popup across ALL TABS!
-        const opData = await checkIsOperatorCard(cleanUid);
-        if (opData) {
-          const opName = opData.nama_operator || opData.nama || 'Operator';
-          const opRole = opData.role || 'Warehouse Staff';
+        // UNIVERSAL OPERATOR CARD CHECK: Open Operator Registered Popup across ALL TABS ONLY ON FRESH UNCLAIMED SCANS!
+        if (isFresh && !data.claimed) {
+          const opData = await checkIsOperatorCard(cleanUid);
+          if (opData) {
+            const opName = opData.nama_operator || opData.nama || 'Operator';
+            const opRole = opData.role || 'Warehouse Staff';
 
-          setActiveOperator({ name: opName, role: opRole });
-          setItemData({ nfc_uid: cleanUid, nama_operator: opName, role: opRole });
-          setActiveModal('operator_registered_popup');
+            setActiveOperator({ name: opName, role: opRole });
+            setItemData({ nfc_uid: cleanUid, nama_operator: opName, role: opRole });
+            setActiveModal('operator_registered_popup');
 
-          // Clear active scan in Firestore so no product modal opens
-          updateDoc(doc(db, 'system', 'active_scan'), { needs_naming: false, claimed: true }).catch(() => {});
-          return;
+            // Clear active scan in Firestore so no product modal opens and popup doesn't repeat
+            await updateDoc(doc(db, 'system', 'active_scan'), { uid: '', needs_naming: false, claimed: true }).catch(() => {});
+            return;
+          }
         }
 
         if (isFresh && data.needs_naming && !data.claimed) {
@@ -899,7 +901,13 @@ export default function RfidModalManager() {
           <div className="pt-2">
             <button
               type="button"
-              onClick={() => setActiveModal(null)}
+              onClick={async () => {
+                try {
+                  await updateDoc(doc(db, 'system', 'active_scan'), { uid: '', claimed: true, needs_naming: false });
+                } catch (e) {}
+                setActiveModal(null);
+                setItemData(null);
+              }}
               className="w-full bg-stone-900 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
             >
               {lang === 'id' ? 'Tutup / OK' : 'Close / OK'}
