@@ -35,6 +35,8 @@ export default function MasterDataPage() {
   const [supPic, setSupPic] = useState('');
   const [supTelp, setSupTelp] = useState('');
   const [supAlamat, setSupAlamat] = useState('');
+  const [supEmail, setSupEmail] = useState('');
+  const [supTop, setSupTop] = useState('');
   const [supSubmitting, setSupSubmitting] = useState(false);
 
   // Card Scan Modal state (for Arduino hardware reader / Web NFC)
@@ -206,6 +208,8 @@ export default function MasterDataPage() {
         pic: supPic.trim(),
         telepon: supTelp.trim(),
         alamat: supAlamat.trim(),
+        email: supEmail.trim(),
+        top: supTop.trim(),
         updated_at: serverTimestamp()
       }, { merge: true });
 
@@ -215,6 +219,8 @@ export default function MasterDataPage() {
       setSupPic('');
       setSupTelp('');
       setSupAlamat('');
+      setSupEmail('');
+      setSupTop('');
       fetchData();
     } catch (err) {
       setSupSubmitting(false);
@@ -498,6 +504,8 @@ export default function MasterDataPage() {
                     <th className="p-3.5">Contact Person (PIC)</th>
                     <th className="p-3.5">Phone / WhatsApp</th>
                     <th className="p-3.5">Address</th>
+                    <th className="p-3.5">Email</th>
+                    <th className="p-3.5">Payment Term (TOP)</th>
                     <th className="p-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -506,8 +514,16 @@ export default function MasterDataPage() {
                     <tr key={item.id} className="hover:bg-stone-50/50 transition">
                       <td className="p-3.5 font-bold text-stone-900">{item.nama_suplier || item.id}</td>
                       <td className="p-3.5 text-stone-700">{item.pic || '-'}</td>
-                      <td className="p-3.5 font-mono text-blue-600">{item.telepon || '-'}</td>
+                      <td className="p-3.5 font-mono text-blue-600">
+                        {item.telepon ? (
+                          <a href={`https://wa.me/${item.telepon.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline flex items-center gap-1">
+                            {item.telepon}
+                          </a>
+                        ) : '-'}
+                      </td>
                       <td className="p-3.5 text-stone-600">{item.alamat || '-'}</td>
+                      <td className="p-3.5 text-stone-600">{item.email || '-'}</td>
+                      <td className="p-3.5 text-stone-600">{item.top || '-'}</td>
                       <td className="p-3.5 text-right">
                         <button
                           onClick={() => handleDelete('suplier', item.id)}
@@ -761,6 +777,28 @@ export default function MasterDataPage() {
                   value={supTelp}
                   onChange={(e) => setSupTelp(e.target.value)}
                   placeholder="e.g. 08123456789"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Official Email:</label>
+                <input
+                  type="email"
+                  value={supEmail}
+                  onChange={(e) => setSupEmail(e.target.value)}
+                  placeholder="e.g. sales@mitrasejahtera.com"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Payment Term (TOP):</label>
+                <input
+                  type="text"
+                  value={supTop}
+                  onChange={(e) => setSupTop(e.target.value)}
+                  placeholder="e.g. Net 30 Days, COD"
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs outline-none focus:border-blue-500"
                 />
               </div>
