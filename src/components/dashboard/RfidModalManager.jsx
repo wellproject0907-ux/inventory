@@ -718,10 +718,10 @@ export default function RfidModalManager() {
       )}
 
       {/* 3. ALREADY REGISTERED */}
-      {activeModal === 'registered' && (
+      {activeModal === 'registered' && itemData && (
         <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-stone-100 space-y-4 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
                 <AlertCircle size={20} />
               </div>
@@ -735,11 +735,18 @@ export default function RfidModalManager() {
             </button>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl text-xs font-semibold">
-            This NFC tag has completed its In and Out cycle. Reset or use another tag for new transactions.
+          {/* Item Details */}
+          <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-4 space-y-2 text-xs">
+            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Item Details:</p>
+            <div className="grid grid-cols-2 gap-2 text-stone-700">
+              <div><span className="text-stone-400 block text-[10px]">SKU:</span><strong className="font-mono text-blue-600">{itemData.sku || '-'}</strong></div>
+              <div><span className="text-stone-400 block text-[10px]">Material Name:</span><strong className="text-stone-900">{itemData.nama_barang || '-'}</strong></div>
+              <div><span className="text-stone-400 block text-[10px]">Supplier:</span><span>{itemData.kategori || '-'}</span></div>
+              <div><span className="text-stone-400 block text-[10px]">Delivery Order (SJ):</span><span className="font-mono font-semibold">{itemData.no_sj || '-'}</span></div>
+            </div>
           </div>
 
-          <div className="pt-3">
+          <div className="pt-2">
             <button
               type="button"
               onClick={handleDismissRegistered}
