@@ -251,13 +251,14 @@ export default function InboundPage() {
             <thead className="bg-stone-50 text-[11px] font-bold text-stone-500 uppercase tracking-wider border-b border-stone-200">
               <tr>
                 <th className="py-3.5 px-6">{lang === 'id' ? 'Tanggal Inbound' : 'Inbound Date'}</th>
+                <th className="py-3.5 px-6 text-center">{t('status')}</th>
                 <th className="py-3.5 px-6 text-right">{lang === 'id' ? 'Total Barang Diterima' : 'Total Received Items'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan="2" className="text-center py-12 text-stone-400">Loading inbound items...</td>
+                  <td colSpan="3" className="text-center py-12 text-stone-400">Loading inbound items...</td>
                 </tr>
               ) : dateList.length > 0 ? (
                 dateList.map((dateGroup) => {
@@ -278,15 +279,20 @@ export default function InboundPage() {
                             <ChevronRight size={14} className={`text-stone-400 transition-transform ${isDateExpanded ? 'rotate-90 text-emerald-600' : ''}`} />
                           </p>
                         </td>
-                        <td className="py-4 px-6 text-right font-bold text-emerald-600 text-sm">
-                          {dateGroup.items.length} Pcs RECEIVED
+                        <td className="py-4 px-6 text-center whitespace-nowrap">
+                          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
+                            {lang === 'id' ? 'DITERIMA' : 'RECEIVED'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-right font-bold text-emerald-600 text-sm font-mono">
+                          {dateGroup.items.length} Pcs
                         </td>
                       </tr>
 
                       {/* LEVEL 2: SJ Accordion Dropdown */}
                       {isDateExpanded && (
                         <tr className="bg-stone-50/70 animate-fade-in">
-                          <td colSpan="2" className="p-4">
+                          <td colSpan="3" className="p-4">
                             <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3 shadow-inner">
                               <h4 className="text-[11px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-2">
                                 <Truck size={14} className="text-emerald-600" />
@@ -425,7 +431,7 @@ export default function InboundPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="2" className="text-center py-12 text-stone-400">
+                  <td colSpan="3" className="text-center py-12 text-stone-400">
                     No inbound items found.
                   </td>
                 </tr>
