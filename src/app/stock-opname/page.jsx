@@ -34,6 +34,7 @@ export default function StockOpnamePage() {
   const [auditScannedUids, setAuditScannedUids] = useState(new Set());
   const [lastScannedInfo, setLastScannedInfo] = useState(null);
   const [scanInput, setScanInput] = useState('');
+  const [showAllMaterials, setShowAllMaterials] = useState(false); // Default false: starts empty, populates as items are scanned
 
   const itemsRef = useRef([]);
   useEffect(() => {
@@ -154,7 +155,11 @@ export default function StockOpnamePage() {
     groupedMap[key].items.push(item);
   });
 
-  const groupedList = Object.values(groupedMap);
+  // By default, filter to show ONLY material groups where AT LEAST 1 UID has been scanned in current session
+  const groupedList = Object.values(groupedMap).filter(group => {
+    if (showAllMaterials) return true;
+    return group.items.some(i => auditScannedUids.has(String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()));
+  });
 
   const toggleExpand = (key) => {
     setExpandedKeys(prev => ({ ...prev, [key]: !prev[key] }));
@@ -285,12 +290,23 @@ export default function StockOpnamePage() {
 
       {/* Stock Opname Reconciliation Table */}
       <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-2xs">
-        <div className="p-4 border-b border-stone-100 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="p-4 border-b border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Layers size={18} className="text-blue-600" />
             <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Grouped Material Reconciliation</h3>
+            <button
+              type="button"
+              onClick={() => setShowAllMaterials(prev => !prev)}
+              className={`px-3 py-1 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                showAllMaterials
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                  : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-stone-200'
+              }`}
+            >
+              {showAllMaterials ? '📋 Showing All Materials' : '🔍 Audited Items Only (Default)'}
+            </button>
           </div>
-          <div className="relative flex-1 md:w-72">
+          <div className="relative w-full sm:w-72">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
               type="text"
@@ -306,7 +322,13 @@ export default function StockOpnamePage() {
           {loading ? (
             <div className="p-8 text-center text-xs text-stone-400">Loading Stock Opname data...</div>
           ) : groupedList.length === 0 ? (
-            <div className="p-8 text-center text-xs text-stone-400">No inventory data to reconcile.</div>
+            <div className="p-12 text-center text-xs text-stone-500 space-y-2">
+              <PackageCheck size={32} className="mx-auto text-stone-300" />
+              <p className="font-bold text-stone-700 text-sm">Belum Ada Data Audit di Sesi Ini</p>
+              <p className="text-stone-400 max-w-md mx-auto leading-relaxed">
+                Silakan tempelkan (*tap*) kartu RFID barang di gudang untuk mulai membandingkan stok fisik dengan stok terdaftar di sistem.
+              </p>
+            </div>
           ) : (
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-20 bg-stone-50 shadow-xs">
