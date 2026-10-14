@@ -424,10 +424,10 @@ export default function StockOpnamePage() {
                                         </div>
                                         <button
                                           onClick={() => handleDeleteItem(item.id, item.nama_barang, item.nfc_uid)}
-                                          className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition cursor-pointer inline-flex items-center gap-1 shrink-0"
+                                          className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition cursor-pointer border border-rose-100 shadow-2xs shrink-0"
                                           title="Delete item and erase tag"
                                         >
-                                          <Trash2 size={13} /> Delete & Erase
+                                          <Trash2 size={13} />
                                         </button>
                                       </div>
                                     </div>

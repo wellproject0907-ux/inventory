@@ -620,19 +620,19 @@ export default function StockOpnamePage() {
                                           <button
                                             type="button"
                                             onClick={() => handleRemoveFromAuditSession(item.nfc_uid || item.id)}
-                                            className="bg-stone-100 hover:bg-amber-50 text-stone-600 hover:text-amber-700 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer inline-flex items-center gap-1 shrink-0 border border-stone-200"
-                                            title="Batalkan hasil scan Opname untuk UID ini"
+                                            className="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 inline-flex items-center justify-center transition cursor-pointer shrink-0 border border-amber-200 shadow-2xs"
+                                            title="Batal scan Opname"
                                           >
-                                            <RotateCcw size={12} /> Batal Scan
+                                            <RotateCcw size={13} />
                                           </button>
                                         )}
                                         <button
                                           type="button"
                                           onClick={() => handleDeleteDatabaseItem(item.id, item.nama_barang, item.nfc_uid)}
-                                          className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer inline-flex items-center gap-1 shrink-0 border border-rose-100 shadow-2xs"
-                                          title="Hapus barang ini secara permanen dari database gudang"
+                                          className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition cursor-pointer shrink-0 border border-rose-100 shadow-2xs"
+                                          title="Delete item and erase tag"
                                         >
-                                          <Trash2 size={12} /> Delete & Erase
+                                          <Trash2 size={13} />
                                         </button>
                                       </div>
                                     </div>
