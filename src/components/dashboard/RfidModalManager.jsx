@@ -127,14 +127,17 @@ export default function RfidModalManager() {
       }
     });
 
-    // Listen to active_scan for Scan 1 (needs_naming)
+    // Listen to active_scan for Scan 1 (needs_naming) - Strict Freshness Check (< 10s)
     const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), (docSnap) => {
       const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
       if (!isActiveTerminal) return;
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.needs_naming && data.uid) {
+        const scanTime = data.scan_time || (data.created_at?.toMillis ? data.created_at.toMillis() : 0);
+        const isFresh = Date.now() - scanTime < 10000;
+
+        if (isFresh && data.needs_naming && data.uid && !data.claimed) {
           const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
           if (currentPath === '/inbound') {
             setItemData({ id: data.uid, nfc_uid: data.uid, needs_naming: true });
@@ -144,7 +147,7 @@ export default function RfidModalManager() {
       }
     });
 
-    // Listen directly to collection 'barang' for registered items (already registered & needs_spk)
+    // Listen directly to collection 'barang' for registered items (already registered & needs_spk) - Strict Freshness Check (< 10s)
     const unsubBarang = onSnapshot(collection(db, 'barang'), (snapshot) => {
       const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
       if (!isActiveTerminal) return;
@@ -153,9 +156,13 @@ export default function RfidModalManager() {
 
       const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
 
-      // On Inbound: Show Already Registered Modal if tag is tapped again
+      // On Inbound: Show Already Registered Modal if tag is tapped again (< 10s fresh)
       if (currentPath === '/inbound') {
-        const regDoc = docs.find(d => d.needs_already_registered_popup === true);
+        const regDoc = docs.find(d => {
+          if (!d.needs_already_registered_popup) return false;
+          const scanTime = d.scan_time || (d.updated_at?.toMillis ? d.updated_at.toMillis() : 0);
+          return Date.now() - scanTime < 10000;
+        });
         if (regDoc) {
           setItemData(regDoc);
           setActiveModal('registered');
@@ -164,9 +171,13 @@ export default function RfidModalManager() {
         }
       }
 
-      // On Outbound: Show Already Registered or Scan 2 OUT (needs_spk)
+      // On Outbound: Show Already Registered or Scan 2 OUT (needs_spk) (< 10s fresh)
       if (currentPath === '/outbound') {
-        const regDoc = docs.find(d => d.needs_already_registered_popup === true);
+        const regDoc = docs.find(d => {
+          if (!d.needs_already_registered_popup) return false;
+          const scanTime = d.scan_time || (d.updated_at?.toMillis ? d.updated_at.toMillis() : 0);
+          return Date.now() - scanTime < 10000;
+        });
         if (regDoc) {
           setItemData(regDoc);
           setActiveModal('registered');
@@ -174,7 +185,11 @@ export default function RfidModalManager() {
           return;
         }
 
-        const outDoc = docs.find(d => d.needs_spk === true);
+        const outDoc = docs.find(d => {
+          if (!d.needs_spk) return false;
+          const scanTime = d.scan_time || (d.updated_at?.toMillis ? d.updated_at.toMillis() : 0);
+          return Date.now() - scanTime < 10000;
+        });
         if (outDoc) {
           setItemData(outDoc);
           setActiveModal('scan2');
