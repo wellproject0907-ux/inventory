@@ -211,20 +211,8 @@ export default function RfidModalManager() {
         }
       }
 
-      // On Outbound: Show Already Registered or Scan 2 OUT (needs_spk) (< 10s fresh)
+      // On Outbound: Strictly Show Scan 2 OUT (needs_spk) Modal Only!
       if (currentPath === '/outbound') {
-        const regDoc = docs.find(d => {
-          if (!d.needs_already_registered_popup) return false;
-          const scanTime = d.scan_time || (d.updated_at?.toMillis ? d.updated_at.toMillis() : 0);
-          return Date.now() - scanTime < 10000;
-        });
-        if (regDoc) {
-          setItemData(regDoc);
-          setActiveModal('registered');
-          fetchHistory(regDoc.nfc_uid);
-          return;
-        }
-
         const outDoc = docs.find(d => {
           if (!d.needs_spk) return false;
           const scanTime = d.scan_time || (d.updated_at?.toMillis ? d.updated_at.toMillis() : 0);

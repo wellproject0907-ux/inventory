@@ -275,7 +275,7 @@ export async function POST(req) {
       if (itemData.lifecycle === 'IN' || Number(itemData.stok ?? 0) > 0) {
         await updateDoc(docRef, {
           needs_spk: true,
-          needs_already_registered_popup: true,
+          needs_already_registered_popup: false,
           needs_operator_auth: false,
           locked_by_tab: null,
           updated_at: serverTimestamp(),
