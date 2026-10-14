@@ -90,6 +90,11 @@ export default function MasterDataPage() {
           if (Date.now() - scannedAt < 10000) {
             const uid = String(data.last_scanned_uid).trim().toUpperCase();
             if (activeTab === 'operator' || showOperatorModal || showCardScanModal) {
+              const existing = operatorList.find(o => String(o.nfc_uid || o.id).trim().toUpperCase() === uid);
+              if (existing) {
+                alert(`⚠️ Kartu UID "${uid}" sudah terdaftar sebagai Operator (${existing.nama_operator || existing.nama} - ${existing.role || 'Warehouse Staff'})!\n\nKartu ini tidak dapat didaftarkan ulang.`);
+                return;
+              }
               setOpUid(uid);
               setShowCardScanModal(false);
               setShowOperatorModal(true);
@@ -103,6 +108,11 @@ export default function MasterDataPage() {
       window.triggerMasterDataScan = (uid) => {
         const clean = String(uid).trim().toUpperCase();
         if (activeTab === 'operator' || showOperatorModal || showCardScanModal) {
+          const existing = operatorList.find(o => String(o.nfc_uid || o.id).trim().toUpperCase() === clean);
+          if (existing) {
+            alert(`⚠️ Kartu UID "${clean}" sudah terdaftar sebagai Operator (${existing.nama_operator || existing.nama} - ${existing.role || 'Warehouse Staff'})!\n\nKartu ini tidak dapat didaftarkan ulang.`);
+            return;
+          }
           setOpUid(clean);
           setShowCardScanModal(false);
           setShowOperatorModal(true);
@@ -111,7 +121,7 @@ export default function MasterDataPage() {
     }
 
     return () => unsubscribe();
-  }, [activeTab, showOperatorModal, showCardScanModal]);
+  }, [activeTab, showOperatorModal, showCardScanModal, operatorList]);
 
   const startScanForOperator = async () => {
     // Open the scan modal which listens to hardware Arduino scans & allows manual/simulate entry
@@ -195,9 +205,15 @@ export default function MasterDataPage() {
       return;
     }
 
+    const cleanUid = String(opUid).trim().toUpperCase();
+    const existing = operatorList.find(o => String(o.nfc_uid || o.id).trim().toUpperCase() === cleanUid);
+    if (existing) {
+      alert(`⚠️ Kartu UID "${cleanUid}" sudah terdaftar sebagai Operator (${existing.nama_operator || existing.nama} - ${existing.role || 'Warehouse Staff'})!\n\nKartu ini tidak dapat didaftarkan ulang.`);
+      return;
+    }
+
     try {
       setOpSubmitting(true);
-      const cleanUid = String(opUid).trim().toUpperCase();
       const docId = cleanUid;
       await setDoc(doc(db, 'operator', docId), {
         nfc_uid: cleanUid,

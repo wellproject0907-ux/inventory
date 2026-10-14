@@ -18,43 +18,71 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid RFID UID format' }, { status: 400 });
     }
 
-    // === STRICT OPERATOR CARD CHECK ===
-    // If card belongs to an Operator ID Card, authorize operator and REJECT product Scan IN / Scan OUT transactions!
+    // === STEP 1: STRICT OPERATOR CARD CHECK AT VERY TOP ===
     try {
-      const opDocRef = doc(db, 'operator', cleanUid);
-      const opDocSnap = await getDoc(opDocRef);
+      let opDocRef = doc(db, 'operator', cleanUid);
+      let opDocSnap = await getDoc(opDocRef);
+
+      if (!opDocSnap.exists()) {
+        const qOp = query(collection(db, 'operator'), where('nfc_uid', '==', cleanUid));
+        const qOpSnap = await getDocs(qOp);
+        if (!qOpSnap.empty) {
+          opDocSnap = qOpSnap.docs[0];
+        }
+      }
+
       if (opDocSnap.exists()) {
         const opData = opDocSnap.data();
         const opName = opData.nama_operator || opData.nama || 'Operator';
         const opRole = opData.role || 'Warehouse Staff';
 
-        await updateDoc(doc(db, 'system', 'settings'), {
-          active_operator_name: opName,
-          active_operator_role: opRole,
-          active_operator_uid: cleanUid,
-          last_scanned_uid: cleanUid,
-          last_scanned_at: serverTimestamp(),
-          updated_at: serverTimestamp()
-        }).catch(() => {});
+        try {
+          await updateDoc(doc(db, 'system', 'settings'), {
+            active_operator_name: opName,
+            active_operator_role: opRole,
+            active_operator_uid: cleanUid,
+            last_scanned_uid: cleanUid,
+            last_scanned_at: serverTimestamp(),
+            updated_at: serverTimestamp()
+          });
+        } catch (err) {}
 
-        // Clear active scan so no Scan IN / Scan OUT modal opens for operator card!
+        // Set active_scan as claimed operator (needs_naming: false)
         await setDoc(doc(db, 'system', 'active_scan'), {
           uid: cleanUid,
           claimed: true,
           needs_naming: false,
-          created_at: serverTimestamp()
-        }).catch(() => {});
+          is_operator: true,
+          nama_operator: opName,
+          role: opRole,
+          created_at: serverTimestamp(),
+          scan_time: Date.now()
+        });
 
         return NextResponse.json({
           success: true,
           action: 'OPERATOR_AUTHORIZED',
-          message: `Operator Authorized: "${opName}". Operator ID cards cannot be registered as product inventory.`,
-          operator: opData
+          message: `Operator Authorized: "${opName}" (${opRole}). Operator ID cards cannot be registered as product inventory.`,
+          operator: { nama_operator: opName, role: opRole, nfc_uid: cleanUid }
         });
       }
     } catch (e) {
       console.error('Operator card check error:', e);
     }
+
+    // === STEP 2: PHYSICAL PRODUCT SCAN (ONLY IF NOT AN OPERATOR CARD) ===
+    try {
+      await updateDoc(doc(db, 'system', 'settings'), {
+        last_scanned_uid: cleanUid,
+        last_scanned_at: serverTimestamp()
+      });
+      await setDoc(doc(db, 'system', 'active_scan'), {
+        uid: cleanUid,
+        claimed: false,
+        created_at: serverTimestamp(),
+        scan_time: Date.now()
+      });
+    } catch (e) {}
 
     const finalUser = warehouse_user || 'Test Operator';
 
