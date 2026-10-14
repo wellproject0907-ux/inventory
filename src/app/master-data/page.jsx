@@ -197,9 +197,10 @@ export default function MasterDataPage() {
 
     try {
       setOpSubmitting(true);
-      const docId = String(opUid).trim();
+      const cleanUid = String(opUid).trim().toUpperCase();
+      const docId = cleanUid;
       await setDoc(doc(db, 'operator', docId), {
-        nfc_uid: opUid.trim(),
+        nfc_uid: cleanUid,
         nama_operator: opNama.trim(),
         role: opRole.trim(),
         updated_at: serverTimestamp()
@@ -207,13 +208,15 @@ export default function MasterDataPage() {
 
       setOpSubmitting(false);
       setShowOperatorModal(false);
+      const savedName = opNama.trim();
       setOpNama('');
       setOpUid('');
-      setOpRole('Staff Gudang');
+      setOpRole('Warehouse Staff');
       fetchData();
+      alert(`✅ Operator "${savedName}" (UID: ${cleanUid}) registered successfully!`);
     } catch (err) {
       setOpSubmitting(false);
-      alert('Failed to save operator data.');
+      alert('Failed to save operator data: ' + err.message);
     }
   };
 

@@ -61,7 +61,9 @@ export default function RfidModalManager() {
             updated_at: serverTimestamp()
           });
         } catch (err) {}
-        // Strictly BLOCK Scan IN and Scan OUT popups for Operator Cards!
+        // Strictly BLOCK Scan IN and Scan OUT popups for Operator Cards, and open Operator Registered Modal!
+        setItemData({ nfc_uid: cleanUid, nama_operator: opName, role: opRole });
+        setActiveModal('operator_registered_popup');
         return;
       }
     } catch (e) {}
@@ -807,6 +809,53 @@ export default function RfidModalManager() {
               className="w-full bg-stone-900 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
             >
               Close / Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 4. REGISTERED OPERATOR / STAFF NOTIFICATION POPUP */}
+      {activeModal === 'operator_registered_popup' && itemData && (
+        <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-100 space-y-4 text-center animate-fade-in z-50">
+          <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto text-xl font-bold shadow-sm">
+            <User size={28} />
+          </div>
+          <div className="space-y-1">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              Authorized Operator Card
+            </span>
+            <h3 className="text-lg font-bold text-stone-900 pt-1">
+              {lang === 'id' ? 'Kartu Terdaftar Sebagai Operator / Staff!' : 'Card Registered as Operator / Staff!'}
+            </h3>
+            <p className="text-xs text-stone-500 font-mono">
+              UID: <code className="bg-stone-100 px-1.5 py-0.5 rounded text-blue-600 font-bold">{itemData.nfc_uid}</code>
+            </p>
+          </div>
+
+          <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-4 text-left text-xs space-y-2">
+            <div className="flex justify-between items-center border-b border-stone-100 pb-2">
+              <span className="text-stone-500 font-semibold">{lang === 'id' ? 'Nama Operator:' : 'Operator Name:'}</span>
+              <strong className="text-stone-900 font-bold text-sm">{itemData.nama_operator}</strong>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-stone-500 font-semibold">{lang === 'id' ? 'Jabatan / Role:' : 'Role / Position:'}</span>
+              <span className="bg-blue-100 text-blue-800 font-bold px-2.5 py-0.5 rounded-full text-[11px]">
+                {itemData.role || 'Warehouse Staff'}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl text-xs font-semibold text-left">
+            ⚠️ {lang === 'id' ? 'Kartu ID Operator ini digunakan khusus untuk otorisasi login staf. Kartu ini tidak dapat digunakan untuk registrasi atau scan barang.' : 'This Operator ID card is used exclusively for staff authorization and cannot be registered or scanned as a product item.'}
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveModal(null)}
+              className="w-full bg-stone-900 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-sm"
+            >
+              {lang === 'id' ? 'Tutup / OK' : 'Close / OK'}
             </button>
           </div>
         </div>
