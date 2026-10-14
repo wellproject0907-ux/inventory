@@ -15,7 +15,8 @@ import {
   ChevronRight,
   Trash2,
   Clock,
-  User
+  User,
+  Calendar
 } from 'lucide-react';
 
 export default function OutboundPage() {
@@ -38,11 +39,13 @@ export default function OutboundPage() {
 
   useEffect(() => {
     const unsubscribe = subscribeToInventory((fetchedItems) => {
+      // Filter items that have been checked out (Stock 0 or lifecycle completed / has SPK)
       const outboundItems = fetchedItems.filter(item => Number(item.stok ?? 1) === 0 || item.no_spk || item.lifecycle === 'COMPLETED');
       setItems(outboundItems);
       setLoading(false);
     });
 
+    // Set system mode to INVENTORY
     fetch('/api/system-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -81,6 +84,16 @@ export default function OutboundPage() {
     }
   };
 
+  const formatTimeOnly = (ts) => {
+    if (!ts) return '-';
+    try {
+      const date = ts.toDate ? ts.toDate() : new Date(ts);
+      return date.toLocaleTimeString(lang === 'id' ? 'id-ID' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    } catch (e) {
+      return '-';
+    }
+  };
+
   const filteredItems = items.filter(item =>
     item.nama_barang?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.nfc_uid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -89,32 +102,38 @@ export default function OutboundPage() {
     item.no_sj?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Group items STRICTLY BY OUTBOUND DATE (Tanggal Outbound)
   const groupedMap = {};
   filteredItems.forEach(item => {
-    const rawName = (item.nama_barang || 'Unnamed Item').trim();
-    const key = rawName.toLowerCase();
-    if (!groupedMap[key]) {
-      let baseSku = item.sku || '-';
-      if (item.sku && item.sku.includes('-')) {
-        const parts = item.sku.split('-');
-        if (parts.length > 1 && parts[parts.length - 1].length >= 4) {
-          parts.pop();
-          baseSku = parts.join('-');
-        }
-      }
+    const dateObj = item.scan_out_at?.toDate
+      ? item.scan_out_at.toDate()
+      : (item.scan_out_at ? new Date(item.scan_out_at) : new Date(item.updated_at?.toDate ? item.updated_at.toDate() : Date.now()));
 
-      groupedMap[key] = {
-        key,
-        sku: baseSku,
-        nama_barang: rawName,
-        supplier: item.kategori || 'General',
+    // Chronological YYYY-MM-DD sort key
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const sortKey = `${year}-${month}-${day}`;
+
+    const displayDate = dateObj.toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    if (!groupedMap[sortKey]) {
+      groupedMap[sortKey] = {
+        sortKey,
+        displayDate,
         items: []
       };
     }
-    groupedMap[key].items.push(item);
+    groupedMap[sortKey].items.push(item);
   });
 
-  const groupedList = Object.values(groupedMap);
+  // Sort chronologically (Newest Outbound Dates at Top)
+  const groupedList = Object.values(groupedMap).sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
   const toggleExpand = (key) => {
     setExpandedKeys(prev => ({ ...prev, [key]: !prev[key] }));
@@ -149,12 +168,16 @@ export default function OutboundPage() {
         </div>
       )}
 
-      {/* Grouped Outbound Reconciliation Table */}
+      {/* Date-Grouped Outbound Reconciliation Table */}
       <div className="bg-white rounded-2xl border border-stone-200/80 shadow-2xs overflow-hidden">
         <div className="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-base font-bold text-stone-900">{t('outboundListTitle')} ({groupedList.length})</h3>
-            <p className="text-xs text-stone-500 mt-0.5">{t('outboundListDesc')}</p>
+            <h3 className="text-base font-bold text-stone-900">
+              {lang === 'id' ? 'Pengelompokan Outbound Per Tanggal' : 'Outbound Grouped By Date'} ({groupedList.length} {lang === 'id' ? 'Tanggal' : 'Dates'})
+            </h3>
+            <p className="text-xs text-stone-500 mt-0.5">
+              {lang === 'id' ? 'Daftar transaksi barang keluar dikelompokkan secara kronologis per tanggal' : 'Chronological outbound items grouped strictly by checkout date'}
+            </p>
           </div>
           <div className="relative w-full sm:w-72">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -172,11 +195,11 @@ export default function OutboundPage() {
           <table className="w-full text-left border-collapse">
             <thead className="bg-stone-50 text-[11px] font-bold text-stone-500 uppercase tracking-wider border-b border-stone-200">
               <tr>
-                <th className="py-3 px-6">{t('materialAndDetails')}</th>
-                <th className="py-3 px-6">{t('supplier')}</th>
-                <th className="py-3 px-6 text-center">{t('totalQtyOut')}</th>
-                <th className="py-3 px-6">{t('status')}</th>
-                <th className="py-3 px-6 text-right">{t('action')}</th>
+                <th className="py-3.5 px-6">{lang === 'id' ? 'Tanggal Outbound' : 'Outbound Date'}</th>
+                <th className="py-3.5 px-6">{lang === 'id' ? 'Ringkasan Barang Keluar' : 'Outbound Items Summary'}</th>
+                <th className="py-3.5 px-6 text-center">{t('totalQtyOut')}</th>
+                <th className="py-3.5 px-6">{t('status')}</th>
+                <th className="py-3.5 px-6 text-right">{t('action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs">
@@ -186,32 +209,29 @@ export default function OutboundPage() {
                 </tr>
               ) : groupedList.length > 0 ? (
                 groupedList.map((group) => {
-                  const isExpanded = !!expandedKeys[group.key];
-                  const latestOutItem = group.items.reduce((latest, current) => {
-                    const currentTs = current.scan_out_at?.toDate ? current.scan_out_at.toDate().getTime() : 0;
-                    const latestTs = latest?.scan_out_at?.toDate ? latest.scan_out_at.toDate().getTime() : 0;
-                    return currentTs > latestTs ? current : latest;
-                  }, group.items[0]);
+                  const isExpanded = !!expandedKeys[group.sortKey];
+                  const uniqueMaterialNames = Array.from(new Set(group.items.map(i => i.nama_barang || 'Unnamed Item')));
+                  const summaryText = uniqueMaterialNames.slice(0, 3).join(', ') + (uniqueMaterialNames.length > 3 ? ` (+${uniqueMaterialNames.length - 3} more)` : '');
 
                   return (
-                    <React.Fragment key={group.key}>
+                    <React.Fragment key={group.sortKey}>
                       <tr
-                        onClick={() => toggleExpand(group.key)}
+                        onClick={() => toggleExpand(group.sortKey)}
                         className="hover:bg-amber-50/40 transition cursor-pointer select-none"
                       >
                         <td className="py-4 px-6">
-                          <p className="font-bold text-stone-900 flex items-center gap-2">
-                            <span>{group.nama_barang}</span>
+                          <p className="font-bold text-stone-900 flex items-center gap-2 text-sm">
+                            <Calendar size={16} className="text-amber-600 shrink-0" />
+                            <span>{group.displayDate}</span>
                             <ChevronRight size={14} className={`text-stone-400 transition-transform ${isExpanded ? 'rotate-90 text-amber-600' : ''}`} />
                           </p>
-                          <p className="font-mono text-[11px] text-amber-600">{group.sku}</p>
-                          <p className="text-[10px] text-stone-500 font-mono mt-1 flex items-center gap-1">
-                            <Clock size={11} className="text-amber-600 shrink-0" />
-                            <span>Out: {formatTimestamp(latestOutItem?.scan_out_at)}</span>
-                          </p>
                         </td>
-                        <td className="py-4 px-6 text-stone-600 font-medium">{group.supplier}</td>
-                        <td className="py-4 px-6 text-center font-bold text-amber-600">
+                        <td className="py-4 px-6 text-stone-700 font-medium">
+                          <span className="bg-stone-100 text-stone-800 px-2.5 py-1 rounded-lg font-mono text-[11px] border border-stone-200">
+                            {summaryText}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-center font-bold text-amber-600 text-sm">
                           {group.items.length} Pcs OUT
                         </td>
                         <td className="py-4 px-6 whitespace-nowrap">
@@ -222,7 +242,7 @@ export default function OutboundPage() {
                         <td className="py-4 px-6 text-right whitespace-nowrap">
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleExpand(group.key); }}
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(group.sortKey); }}
                             className="bg-stone-100 hover:bg-stone-200 text-stone-700 px-3 py-1.5 rounded-xl font-semibold text-xs transition inline-flex items-center gap-1 ml-auto cursor-pointer"
                           >
                             {isExpanded ? t('hideUIDs') : t('viewUIDs')} <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -230,45 +250,46 @@ export default function OutboundPage() {
                         </td>
                       </tr>
 
-                      {/* Accordion Dropdown Breakdown */}
+                      {/* Accordion Dropdown Breakdown (Individual Outbound Items on This Date) */}
                       {isExpanded && (
                         <tr className="bg-stone-50/80 animate-fade-in">
                           <td colSpan="5" className="p-4">
                             <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3 shadow-inner">
                               <h4 className="text-[11px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-2">
-                                <Layers size={14} className="text-amber-600" /> Individual Outbound UIDs Breakdown ({group.items.length})
+                                <Layers size={14} className="text-amber-600" /> Items Checked Out On {group.displayDate} ({group.items.length} Total)
                               </h4>
                               <div className="divide-y divide-stone-100 border border-stone-100 rounded-lg overflow-hidden">
                                 {group.items.map((item) => (
                                   <div
                                     key={item.id}
-                                    className="p-3 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-stone-50/50 hover:bg-stone-50"
+                                    className="p-3.5 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-stone-50/50 hover:bg-stone-50"
                                   >
                                     <div className="space-y-1">
+                                      <p className="font-bold text-stone-900 text-sm">{item.nama_barang || 'Unnamed Item'}</p>
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <code className="font-mono font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
-                                          UID: {item.nfc_uid}
+                                          SKU: {item.sku || '-'} | UID: {item.nfc_uid}
                                         </code>
                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                           {t('checkedOut')}
                                         </span>
                                       </div>
                                       <p className="text-[11px] text-stone-600 font-mono">
-                                        SJ: <span className="font-semibold text-stone-800">{item.no_sj || '-'}</span> | SPK: <span className="font-semibold text-stone-800">{item.no_spk || '-'}</span>
+                                        SJ: <span className="font-semibold text-stone-800">{item.no_sj || '-'}</span> | SPK: <span className="font-semibold text-stone-800">{item.no_spk || '-'}</span> | Supplier: <span className="font-semibold text-stone-800">{item.kategori || 'General'}</span>
                                       </p>
                                       <p className="text-[10px] text-stone-500 flex items-center gap-2 flex-wrap">
-                                        <span className="flex items-center gap-1 font-semibold text-amber-700">
-                                          <Clock size={11} /> Scan OUT Timestamp: {formatTimestamp(item.scan_out_at)}
+                                        <span className="flex items-center gap-1 font-bold text-amber-700">
+                                          <Clock size={11} /> Outbound Time: {formatTimeOnly(item.scan_out_at)}
                                         </span>
                                         <span className="text-stone-300">|</span>
                                         <span className="flex items-center gap-1 text-stone-400">
-                                          Registered Inbound: {formatTimestamp(item.scan_in_at)}
+                                          Inbound: {formatTimestamp(item.scan_in_at)}
                                         </span>
                                       </p>
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                      <div className="flex items-center gap-1 text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1 rounded-full shrink-0">
+                                      <div className="flex items-center gap-1 text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1.5 rounded-full shrink-0">
                                         <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
                                       </div>
                                       <button
