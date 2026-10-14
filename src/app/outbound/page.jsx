@@ -141,14 +141,12 @@ export default function OutboundPage() {
       No: index + 1,
       SKU: item.sku || '-',
       UID: item.nfc_uid || '-',
-      'Material Name': item.nama_barang || '-',
       Supplier: item.kategori || '-',
       'SJ No.': item.no_sj || '-',
+      'Material Name': item.nama_barang || '-',
       'SPK No.': item.no_spk || '-',
-      'Outbound Time (OUT)': formatTimestamp(item.scan_out_at),
-      'Inbound Time (IN)': formatTimestamp(item.scan_in_at),
-      'Warehouse Status': 'CHECKED OUT (COMPLETED)',
-      'Inbound Operator': item.warehouse_user_in || item.warehouse_user || 'Warehouse Admin',
+      'Outbound Time': formatTimestamp(item.scan_out_at),
+      Status: 'CHECKED OUT (COMPLETED)',
       'Outbound Operator': item.warehouse_user_out || item.warehouse_user || 'Warehouse Admin'
     }));
 

@@ -238,7 +238,6 @@ export default function InboundPage() {
       Supplier: item.kategori || '-',
       'SJ No.': item.no_sj || '-',
       'Inbound Time (IN)': formatTimestamp(item.scan_in_at),
-      'Warehouse Status': 'IN WAREHOUSE (ACTIVE IN)',
       'Warehouse User': item.warehouse_user_in || item.warehouse_user || 'Warehouse Admin'
     }));
 
