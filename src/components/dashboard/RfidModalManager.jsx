@@ -323,6 +323,7 @@ export default function RfidModalManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           uid: itemData.nfc_uid,
+          action: 'SAVE_REGISTRATION',
           sku: generatedSkuId,
           nama_barang: namaBarang,
           kategori: supplier || 'General Supplier',
@@ -344,7 +345,8 @@ export default function RfidModalManager() {
         setSuggestedSj('');
         setLastHistory(null);
       } else {
-        alert('Gagal menyimpan detail barang');
+        const errData = await res.json().catch(() => ({}));
+        alert(`Gagal menyimpan detail barang: ${errData.message || errData.error || 'Server error'}`);
       }
     } catch (err) {
       alert('Terjadi kesalahan jaringan');

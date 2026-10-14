@@ -66,7 +66,7 @@ export async function POST(req) {
       }
     } catch (e) {}
 
-    if ((currentMode === 'OPNAME' && (!action || action === 'LOG')) || action === 'AUDIT') {
+    if (action !== 'SAVE_REGISTRATION' && !sku && ((currentMode === 'OPNAME' && (!action || action === 'LOG')) || action === 'AUDIT')) {
       if (!docSnap.exists()) {
         return NextResponse.json({
           success: false,
