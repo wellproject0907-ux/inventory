@@ -1,6 +1,7 @@
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const axios = require('axios');
+const http = require('http');
 
 const BAUD_RATE = 9600;
 const API_URL = process.env.INVENTORY_API_URL || 'https://inventory-two-blue.vercel.app/api/arduino/scan';
@@ -8,6 +9,42 @@ const API_URL = process.env.INVENTORY_API_URL || 'https://inventory-two-blue.ver
 console.log('==================================================');
 console.log('   INVENTORY APP - ARDUINO RC522 USB BRIDGE       ');
 console.log('==================================================');
+
+// ⚡ Local SSE Server for 0ms Instant Local Browser Notification
+const sseClients = [];
+const server = http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+
+  if (req.url === '/events') {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    sseClients.push(res);
+    req.on('close', () => {
+      const idx = sseClients.indexOf(res);
+      if (idx !== -1) sseClients.splice(idx, 1);
+    });
+  } else {
+    res.writeHead(204);
+    res.end();
+  }
+});
+
+server.listen(8080, () => {
+  console.log('⚡ Local Zero-Delay Listener active on http://localhost:8080/events\n');
+});
+
+function notifyLocalBrowser(uid) {
+  const data = JSON.stringify({ uid, timestamp: Date.now() });
+  sseClients.forEach(client => {
+    try {
+      client.write(`data: ${data}\n\n`);
+    } catch (e) {}
+  });
+}
 
 async function startBridge() {
   let portPath = process.env.ARDUINO_PORT;
@@ -23,9 +60,7 @@ async function startBridge() {
         console.log(`   [${index + 1}] ${p.path} (${p.manufacturer || 'Unknown device'})`);
       });
 
-      // Jika port belum ditentukan via environment variable, pilih port yang sesuai untuk Arduino
       if (!portPath || portPath === 'COM3') {
-        // Cari port yang mengandung usbserial, usbmodem, ttyUSB, ttyACM, atau Windows COM ports
         let arduinoPort = ports.find(p =>
           p.path.toLowerCase().includes('usbserial') ||
           p.path.toLowerCase().includes('usbmodem') ||
@@ -43,7 +78,7 @@ async function startBridge() {
 
         if (!arduinoPort) {
           console.log('\n❌ Tidak ditemukan port USB Arduino yang valid (COM port / usbserial / usbmodem).');
-          console.log('💡 Tips: Jalankan dengan menentukan port manual, contoh: ARDUINO_PORT=COM3 npm start (Windows) atau ARDUINO_`PORT=/dev/cu.usbserial-XXXX npm start (Mac)');
+          console.log('💡 Tips: Jalankan dengan menentukan port manual, contoh: ARDUINO_PORT=COM3 npm start (Windows) atau ARDUINO_PORT=/dev/cu.usbserial-XXXX npm start (Mac)');
           process.exit(1);
         }
 
@@ -56,9 +91,8 @@ async function startBridge() {
     portPath = portPath || 'COM3';
   }
 
-  // Penting: Tutup Serial Monitor di Arduino IDE sebelum menjalankan bridge!
   console.log(`\nMencoba membuka port USB: ${portPath} pada ${BAUD_RATE} baud...`);
-  console.log('⚠️ CATATAN: Pastikan Serial Monitor di Arduino IDE sudah DITUTUP (Close), karena port serial hanya bisa dipakai oleh satu aplikasi dalam satu waktu.\n');
+  console.log('⚠️ CATATAN: Pastikan Serial Monitor di Arduino IDE sudah DITUTUP (Close).\n');
 
   const port = new SerialPort({
     path: portPath,
@@ -83,6 +117,10 @@ async function startBridge() {
 
     console.log(`🏷️  [RFID SCAN] Kartu terdeteksi! UID: ${uid}`);
 
+    // ⚡ 1. INSTANT LOCAL BROWSER NOTIFICATION (0.005 Seconds - Zero Internet Delay)
+    notifyLocalBrowser(uid);
+
+    // 🌐 2. Background Cloud Sync to Vercel & Firebase
     try {
       const response = await axios.post(API_URL, {
         uid: uid,

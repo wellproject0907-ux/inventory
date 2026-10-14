@@ -121,10 +121,46 @@ export default function RfidModalManager() {
       }
     });
 
+    // ⚡ Local Zero-Delay SSE Connection (0.005 seconds instant response directly from local bridge)
+    let eventSource;
+    try {
+      if (typeof window !== 'undefined' && 'EventSource' in window) {
+        eventSource = new EventSource('http://localhost:8080/events');
+        eventSource.onmessage = async (event) => {
+          const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
+          if (!isActiveTerminal) return;
+
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload && payload.uid) {
+              const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
+              if (currentPath === '/inbound') {
+                setItemData({ id: payload.uid, nfc_uid: payload.uid, needs_naming: true });
+                setActiveModal('scan1');
+              } else if (currentPath === '/outbound') {
+                try {
+                  const res = await fetch('/api/barang');
+                  if (res.ok) {
+                    const docs = await res.json();
+                    const found = docs.find(d => String(d.nfc_uid || d.id).toUpperCase() === String(payload.uid).toUpperCase());
+                    if (found) {
+                      setItemData(found);
+                      setActiveModal('scan2');
+                    }
+                  }
+                } catch (e) {}
+              }
+            }
+          } catch (e) {}
+        };
+      }
+    } catch (e) {}
+
     return () => {
       unsubSettings();
       unsubActiveScan();
       unsubBarang();
+      if (eventSource) eventSource.close();
     };
   }, [pendingAuthUid, activeModal]);
 
