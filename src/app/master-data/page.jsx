@@ -202,6 +202,12 @@ export default function MasterDataPage() {
       setOpUid('');
       setOpRole('Staff Gudang');
       fetchData();
+    } catch (err) {
+      setOpSubmitting(false);
+      alert('Failed to save operator data.');
+    }
+  };
+
   const handleSupplierSubmit = async (e) => {
     e.preventDefault();
     if (!supNama) {
