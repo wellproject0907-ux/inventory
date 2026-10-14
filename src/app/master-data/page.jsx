@@ -31,13 +31,18 @@ export default function MasterDataPage() {
 
   // Add Supplier Modal state
   const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [isEditSup, setIsEditSup] = useState(false);
+  const [supIdEdit, setSupIdEdit] = useState('');
   const [supNama, setSupNama] = useState('');
   const [supPic, setSupPic] = useState('');
   const [supTelp, setSupTelp] = useState('');
   const [supAlamat, setSupAlamat] = useState('');
   const [supEmail, setSupEmail] = useState('');
   const [supTop, setSupTop] = useState('');
+  const [supStatus, setSupStatus] = useState('Active');
   const [supSubmitting, setSupSubmitting] = useState(false);
+
+  const [txInboundList, setTxInboundList] = useState([]);
 
   // Card Scan Modal state (for Arduino hardware reader / Web NFC)
   const [showCardScanModal, setShowCardScanModal] = useState(false);
@@ -60,6 +65,10 @@ export default function MasterDataPage() {
 
       const operatorSnap = await getDocs(collection(db, 'operator'));
       setOperatorList(operatorSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+      const txSnap = await getDocs(collection(db, 'riwayat_transaksi'));
+      setTxInboundList(txSnap.docs.map(doc => doc.data()).filter(tx => tx.tipe === 'IN'));
+
     } catch (err) {
       console.error('Error fetching master data:', err);
     } finally {
@@ -202,7 +211,7 @@ export default function MasterDataPage() {
 
     try {
       setSupSubmitting(true);
-      const supId = String(supNama).toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const supId = isEditSup ? supIdEdit : String(supNama).toLowerCase().replace(/[^a-z0-9]/g, '_');
       await setDoc(doc(db, 'suplier', supId), {
         nama_suplier: supNama.trim(),
         pic: supPic.trim(),
@@ -210,6 +219,7 @@ export default function MasterDataPage() {
         alamat: supAlamat.trim(),
         email: supEmail.trim(),
         top: supTop.trim(),
+        status: supStatus,
         updated_at: serverTimestamp()
       }, { merge: true });
 
@@ -221,11 +231,27 @@ export default function MasterDataPage() {
       setSupAlamat('');
       setSupEmail('');
       setSupTop('');
+      setSupStatus('Active');
+      setIsEditSup(false);
+      setSupIdEdit('');
       fetchData();
     } catch (err) {
       setSupSubmitting(false);
       alert('Failed to save supplier data.');
     }
+  };
+
+  const openEditSupplier = (supplierItem) => {
+    setSupNama(supplierItem.nama_suplier || supplierItem.id);
+    setSupPic(supplierItem.pic || '');
+    setSupTelp(supplierItem.telepon || '');
+    setSupAlamat(supplierItem.alamat || '');
+    setSupEmail(supplierItem.email || '');
+    setSupTop(supplierItem.top || '');
+    setSupStatus(supplierItem.status || 'Active');
+    setSupIdEdit(supplierItem.id);
+    setIsEditSup(true);
+    setShowSupplierModal(true);
   };
 
   const handleBulkSubmit = async (e) => {
@@ -502,39 +528,88 @@ export default function MasterDataPage() {
                   <tr className="bg-stone-50 border-b border-stone-100 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
                     <th className="p-3.5">Supplier Name</th>
                     <th className="p-3.5">Contact Person (PIC)</th>
-                    <th className="p-3.5">Phone / WhatsApp</th>
-                    <th className="p-3.5">Address</th>
-                    <th className="p-3.5">Email</th>
-                    <th className="p-3.5">Payment Term (TOP)</th>
+                    <th className="p-3.5">Commercials</th>
+                    <th className="p-3.5">Metrics</th>
+                    <th className="p-3.5 text-center">Status</th>
                     <th className="p-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 text-xs text-stone-800">
-                  {filteredSuplier.map((item) => (
-                    <tr key={item.id} className="hover:bg-stone-50/50 transition">
-                      <td className="p-3.5 font-bold text-stone-900">{item.nama_suplier || item.id}</td>
-                      <td className="p-3.5 text-stone-700">{item.pic || '-'}</td>
-                      <td className="p-3.5 font-mono text-blue-600">
-                        {item.telepon ? (
-                          <a href={`https://wa.me/${item.telepon.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline flex items-center gap-1">
-                            {item.telepon}
-                          </a>
-                        ) : '-'}
-                      </td>
-                      <td className="p-3.5 text-stone-600">{item.alamat || '-'}</td>
-                      <td className="p-3.5 text-stone-600">{item.email || '-'}</td>
-                      <td className="p-3.5 text-stone-600">{item.top || '-'}</td>
-                      <td className="p-3.5 text-right">
-                        <button
-                          onClick={() => handleDelete('suplier', item.id)}
-                          className="w-7 h-7 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition cursor-pointer ml-auto shadow-2xs"
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredSuplier.map((item) => {
+                    const suplierName = item.nama_suplier || item.id;
+                    const totalSku = bahanList.filter(b => b.supplier === suplierName).length;
+                    const totalInbound = txInboundList.filter(tx => {
+                      const bahan = bahanList.find(b => b.sku === tx.sku);
+                      return bahan && bahan.supplier === suplierName;
+                    }).length;
+
+                    return (
+                      <tr key={item.id} className="hover:bg-stone-50/50 transition">
+                        <td className="p-3.5">
+                          <p className="font-bold text-stone-900">{suplierName}</p>
+                          <p className="text-[10px] text-stone-500 max-w-[150px] truncate">{item.alamat || '-'}</p>
+                        </td>
+                        <td className="p-3.5">
+                          <p className="font-bold text-stone-700">{item.pic || '-'}</p>
+                          {item.telepon && (
+                            <a href={`https://wa.me/${item.telepon.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-emerald-600 hover:underline">
+                              WhatsApp: {item.telepon}
+                            </a>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          <p className="text-stone-600">Email: {item.email || '-'}</p>
+                          <p className="text-stone-600">TOP: {item.top || '-'}</p>
+                        </td>
+                        <td className="p-3.5">
+                          <div className="flex gap-2">
+                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200">
+                              {totalSku} SKUs
+                            </span>
+                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-200">
+                              {totalInbound} Inbounds
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${
+                            item.status === 'Inactive' ? 'bg-stone-100 text-stone-600 border-stone-200' :
+                            item.status === 'Blacklisted' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                            'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          }`}>
+                            {item.status || 'Active'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                window.location.href = `/inbound?search=${encodeURIComponent(suplierName)}`;
+                              }}
+                              className="px-2 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold transition cursor-pointer text-[10px] border border-indigo-200"
+                              title="View Inbound History"
+                            >
+                              History
+                            </button>
+                            <button
+                              onClick={() => openEditSupplier(item)}
+                              className="px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold transition cursor-pointer text-[10px] border border-blue-200"
+                              title="Edit Supplier"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete('suplier', item.id)}
+                              className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition cursor-pointer shadow-2xs border border-rose-100"
+                              title="Delete Supplier"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )
@@ -814,10 +889,26 @@ export default function MasterDataPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Status:</label>
+                <select
+                  value={supStatus}
+                  onChange={(e) => setSupStatus(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs outline-none focus:border-blue-500"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Blacklisted">Blacklisted</option>
+                </select>
+              </div>
+
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowSupplierModal(false)}
+                  onClick={() => {
+                    setShowSupplierModal(false);
+                    setIsEditSup(false);
+                  }}
                   className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
                 >
                   Cancel
