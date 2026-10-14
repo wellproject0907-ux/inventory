@@ -155,6 +155,20 @@ export default function StockOpnamePage() {
     });
   };
 
+  const handleDeleteDatabaseItem = async (id, nama, uid) => {
+    if (confirm(`Hapus permanen barang "${nama}" (UID: ${uid}) dari database gudang?\n\nData barang akan dihapus dari database.`)) {
+      try {
+        await deleteDoc(doc(db, 'barang', String(id)));
+        try {
+          await CapacitorNfc.erase();
+        } catch (e) {}
+        handleRemoveFromAuditSession(uid);
+      } catch (err) {
+        alert('Gagal menghapus barang: ' + err.message);
+      }
+    }
+  };
+
   const filteredItems = items.filter(item =>
     (item.sku && item.sku.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (item.nfc_uid && item.nfc_uid.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -500,7 +514,7 @@ export default function StockOpnamePage() {
                                         </p>
                                       </div>
 
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1 rounded-full shrink-0 flex items-center gap-1">
                                           <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
                                         </span>
@@ -508,12 +522,20 @@ export default function StockOpnamePage() {
                                           <button
                                             type="button"
                                             onClick={() => handleRemoveFromAuditSession(item.nfc_uid || item.id)}
-                                            className="bg-stone-100 hover:bg-rose-50 text-stone-600 hover:text-rose-600 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer inline-flex items-center gap-1 shrink-0 border border-stone-200"
-                                            title="Batalkan hasil scan Opname untuk UID ini (hanya menghapus hasil scan fisik Opname, tidak menghapus barang di database)"
+                                            className="bg-stone-100 hover:bg-amber-50 text-stone-600 hover:text-amber-700 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer inline-flex items-center gap-1 shrink-0 border border-stone-200"
+                                            title="Batalkan hasil scan Opname untuk UID ini"
                                           >
-                                            <RotateCcw size={12} /> Hapus Hasil Scan Opname
+                                            <RotateCcw size={12} /> Batal Scan
                                           </button>
                                         )}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteDatabaseItem(item.id, item.nama_barang, item.nfc_uid)}
+                                          className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer inline-flex items-center gap-1 shrink-0 border border-rose-100 shadow-2xs"
+                                          title="Hapus barang ini secara permanen dari database gudang"
+                                        >
+                                          <Trash2 size={12} /> Delete & Erase
+                                        </button>
                                       </div>
                                     </div>
                                   );
