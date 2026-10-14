@@ -30,7 +30,16 @@ export default function StockOpnamePage() {
   };
 
   useEffect(() => {
-    fetchOpnameData();
+    setLoading(true);
+    const q = query(collection(db, 'barang'), orderBy('created_at', 'desc'));
+    const unsubscribeInventory = onSnapshot(q, (snapshot) => {
+      const allDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Strict filter: ONLY active items currently in the warehouse
+      const activeData = allDocs.filter(i => !i.is_completed && i.lifecycle !== 'COMPLETED' && Number(i.stok ?? 1) > 0);
+      setItems(activeData);
+      setLoading(false);
+    });
+
     fetch('/api/system-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -38,7 +47,7 @@ export default function StockOpnamePage() {
     }).catch(err => console.log('Failed to set mode:', err));
 
     // Listen to real-time hardware scans
-    const unsubscribe = onSnapshot(doc(db, 'system', 'settings'), (docSnap) => {
+    const unsubSettings = onSnapshot(doc(db, 'system', 'settings'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.last_scanned_uid) {
@@ -50,7 +59,10 @@ export default function StockOpnamePage() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeInventory();
+      unsubSettings();
+    };
   }, []);
 
   const [highlightedUid, setHighlightedUid] = useState(null);
@@ -401,13 +413,8 @@ export default function StockOpnamePage() {
                                       <div className="space-y-1">
                                         <div className="flex items-center gap-2">
                                           <code className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">UID: {item.nfc_uid}</code>
-                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200">
-                                            Qty: {item.stok ?? 1}
-                                          </span>
-                                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                            isOut ? 'bg-amber-100 text-amber-800' : 'bg-emerald-600 text-white'
-                                          }`}>
-                                            {isOut ? 'CHECKED OUT' : 'IN WAREHOUSE'}
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white">
+                                            ACTIVE IN WAREHOUSE
                                           </span>
                                         </div>
                                         <p className="text-[11px] text-stone-600 font-mono">
