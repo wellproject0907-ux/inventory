@@ -34,7 +34,7 @@ export default function StockOpnamePage() {
   const [auditScannedUids, setAuditScannedUids] = useState(new Set());
   const [lastScannedInfo, setLastScannedInfo] = useState(null);
   const [scanInput, setScanInput] = useState('');
-  const [showAllMaterials, setShowAllMaterials] = useState(false); // Default false: starts empty, populates as items are scanned
+  const [showAllMaterials, setShowAllMaterials] = useState(true); // Default true: shows all warehouse materials for side-by-side count reconciliation
 
   const itemsRef = useRef([]);
   useEffect(() => {
@@ -99,8 +99,7 @@ export default function StockOpnamePage() {
     if (found) {
       setLastScannedInfo({ found: true, uid: cleanUid, item: found });
       setHighlightedUid(found.nfc_uid || found.id);
-      const groupKey = (found.nama_barang || 'Unnamed Material').trim().toLowerCase();
-      setExpandedKeys(prev => ({ ...prev, [groupKey]: true }));
+      // Clean counts: do NOT auto-expand accordion during scan
     } else {
       setLastScannedInfo({ found: false, uid: cleanUid });
     }
@@ -417,56 +416,61 @@ export default function StockOpnamePage() {
                         <tr className="bg-stone-50/80 animate-fade-in">
                           <td colSpan="7" className="p-4">
                             <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3 shadow-inner">
-                              <h4 className="text-[11px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-2">
-                                <Layers size={14} className="text-blue-600" /> Physically Scanned UIDs ({group.items.filter(i => auditScannedUids.has(String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase())).length} of {group.items.length})
-                              </h4>
-                              <div className="divide-y divide-stone-100 border border-stone-100 rounded-lg overflow-hidden">
-                                {(() => {
-                                  const scannedItems = group.items.filter(i => auditScannedUids.has(String(i.nfc_uid || i.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()));
-                                  if (scannedItems.length === 0) {
-                                    return (
-                                      <div className="p-4 text-center text-xs text-stone-400">
-                                        Belum ada UID yang di-scan pada material ini. Silakan tap kartu RFID untuk menambahkan hasil scan fisik.
-                                      </div>
-                                    );
-                                  }
-                                  return scannedItems.map((item) => {
-                                    const cleanItemUid = String(item.nfc_uid || item.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-                                    const isHighlighted = cleanItemUid === highlightedUid;
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-[11px] font-bold text-stone-700 uppercase tracking-wider flex items-center gap-2">
+                                  <Layers size={14} className="text-blue-600" /> Individual UID Audit Breakdown ({group.items.length} Total UIDs)
+                                </h4>
+                                <span className="text-[11px] font-semibold text-stone-500">
+                                  Physical Audit Scan: <strong className="text-emerald-600">{qtyPhysical}</strong> / {qtySystem}
+                                </span>
+                              </div>
 
-                                    return (
-                                      <div
-                                        key={item.id}
-                                        className={`p-3 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
-                                          isHighlighted
-                                            ? 'bg-amber-100 border-2 border-amber-500 animate-pulse'
-                                            : 'bg-emerald-50/60'
-                                        }`}
-                                      >
-                                        <div className="space-y-1">
-                                          <div className="flex items-center gap-2">
-                                            <code className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">UID: {item.nfc_uid}</code>
+                              <div className="divide-y divide-stone-100 border border-stone-100 rounded-lg overflow-hidden">
+                                {group.items.map((item) => {
+                                  const cleanItemUid = String(item.nfc_uid || item.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                                  const isScannedInAudit = auditScannedUids.has(cleanItemUid);
+                                  const isHighlighted = cleanItemUid === highlightedUid;
+
+                                  return (
+                                    <div
+                                      key={item.id}
+                                      className={`p-3 transition rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+                                        isHighlighted
+                                          ? 'bg-amber-100 border-2 border-amber-500 animate-pulse'
+                                          : isScannedInAudit
+                                          ? 'bg-emerald-50/60'
+                                          : 'bg-rose-50/50'
+                                      }`}
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <code className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">UID: {item.nfc_uid}</code>
+                                          {isScannedInAudit ? (
                                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white flex items-center gap-1">
                                               <Check size={11} /> VERIFIED PRESENT
                                             </span>
-                                          </div>
-                                          <p className="text-[11px] text-stone-600 font-mono">
-                                            SJ: <span className="font-semibold text-stone-800">{item.no_sj || '-'}</span> | SPK: <span className="font-semibold text-stone-800">{item.no_spk || '-'}</span>
-                                          </p>
-                                          <p className="text-[10px] text-stone-400 flex items-center gap-1">
-                                            <Clock size={11} /> Registered Inbound: {item.scan_in_at?.toDate ? item.scan_in_at.toDate().toLocaleString() : 'Active'}
-                                          </p>
+                                          ) : (
+                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white flex items-center gap-1">
+                                              <AlertCircle size={11} /> BARANG HILANG (NOT SCANNED)
+                                            </span>
+                                          )}
                                         </div>
-
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1 rounded-full shrink-0 flex items-center gap-1">
-                                            <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
-                                          </span>
-                                        </div>
+                                        <p className="text-[11px] text-stone-600 font-mono">
+                                          SJ: <span className="font-semibold text-stone-800">{item.no_sj || '-'}</span> | SPK: <span className="font-semibold text-stone-800">{item.no_spk || '-'}</span>
+                                        </p>
+                                        <p className="text-[10px] text-stone-400 flex items-center gap-1">
+                                          <Clock size={11} /> Registered Inbound: {item.scan_in_at?.toDate ? item.scan_in_at.toDate().toLocaleString() : 'Active'}
+                                        </p>
                                       </div>
-                                    );
-                                  });
-                                })()}
+
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-stone-700 font-semibold text-[11px] bg-stone-100 px-3 py-1 rounded-full shrink-0 flex items-center gap-1">
+                                          <User size={12} className="text-stone-500" /> {item.warehouse_user || 'Warehouse Admin'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           </td>
