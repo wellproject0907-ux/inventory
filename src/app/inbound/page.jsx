@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '@/services/firebase/config';
-import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, getDocs } from 'firebase/firestore';
 import { subscribeToInventory } from '@/services/firebase/inventoryService';
 import { CapacitorNfc } from '@capgo/capacitor-nfc';
 import { useTranslation } from '@/services/languageService';
@@ -54,9 +54,8 @@ export default function InboundPage() {
 
   useEffect(() => {
     const unsubscribe = subscribeToInventory((fetchedItems) => {
-      // Strict filter: ONLY active inbound items currently in the warehouse
-      const activeInboundItems = fetchedItems.filter(item => !item.is_completed && item.lifecycle !== 'COMPLETED' && Number(item.stok ?? 1) > 0);
-      setItems(activeInboundItems);
+      // Keep ALL registered inbound items permanently in Inbound list
+      setItems(fetchedItems);
       setLoading(false);
     });
 
@@ -142,9 +141,16 @@ export default function InboundPage() {
     const sjKey = sjRaw.toLowerCase();
 
     if (!dateGroup.sjMap[sjKey]) {
+      const resolvedSupplier = (item.kategori && item.kategori !== '-' && item.kategori !== 'General Supplier')
+        ? item.kategori
+        : (item.supplier && item.supplier !== '-')
+        ? item.supplier
+        : 'Aneka Warna';
+
       dateGroup.sjMap[sjKey] = {
         sjKey,
         no_sj: sjRaw,
+        supplier: resolvedSupplier,
         operator: item.warehouse_user_in || item.warehouse_user || 'Warehouse Admin',
         items: [],
         materialMap: {}
@@ -306,8 +312,8 @@ export default function InboundPage() {
                                             <p className="font-bold text-stone-900 font-mono flex items-center gap-2 flex-wrap">
                                               <span>Delivery Order (SJ): <strong>{sjGroup.no_sj}</strong></span>
                                               <span className="text-stone-300">|</span>
-                                              <span className="text-stone-700 font-semibold font-sans">
-                                                {lang === 'id' ? 'Pemasok / Supplier' : 'Supplier'}: <strong className="text-emerald-700">{sjGroup.supplier}</strong>
+                                              <span className="bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 text-[11px] font-sans">
+                                                🏢 {sjGroup.supplier}
                                               </span>
                                               <ChevronRight size={14} className={`text-stone-400 transition-transform ${isSjExpanded ? 'rotate-90 text-emerald-600' : ''}`} />
                                             </p>
