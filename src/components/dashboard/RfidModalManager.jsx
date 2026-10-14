@@ -82,14 +82,17 @@ export default function RfidModalManager() {
 
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // PRIORITAS 1: Scan 1 - IN (needs_naming)
+      // PRIORITAS 1: Scan 1 - IN (needs_naming) - Only allowed on /inbound page
       const inDoc = docs.find(d => d.needs_naming === true);
       if (inDoc) {
-        if (activeModal !== 'scan1') {
-          setItemData(inDoc);
-          setActiveModal('scan1');
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (currentPath === '/inbound') {
+          if (activeModal !== 'scan1') {
+            setItemData(inDoc);
+            setActiveModal('scan1');
+          }
+          return;
         }
-        return;
       }
 
       // PRIORITAS 2: Already Registered
