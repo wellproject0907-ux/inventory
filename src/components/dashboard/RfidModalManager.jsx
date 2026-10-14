@@ -143,7 +143,13 @@ export default function RfidModalManager() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         const scanTime = data.scan_time || (data.created_at?.toMillis ? data.created_at.toMillis() : 0);
-        const isFresh = Date.now() - scanTime < 10000;
+        const isFresh = Boolean(data.scan_time) && (Date.now() - scanTime < 10000);
+
+        if (!isFresh && data.needs_naming) {
+          // Auto-clear stale scan in Firestore so it never pops up again!
+          updateDoc(doc(db, 'system', 'active_scan'), { needs_naming: false, claimed: true }).catch(() => {});
+          return;
+        }
 
         if (isFresh && data.needs_naming && data.uid && !data.claimed) {
           const currentPath = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
@@ -319,13 +325,11 @@ export default function RfidModalManager() {
   };
 
   const handleCancelScan1 = async () => {
-    if (confirm('Cancel registration for this RFID card?')) {
-      try {
-        await updateDoc(doc(db, 'system', 'active_scan'), { claimed: true, needs_naming: false });
-      } catch (err) {}
-      setActiveModal(null);
-      setItemData(null);
-    }
+    try {
+      await updateDoc(doc(db, 'system', 'active_scan'), { claimed: true, needs_naming: false });
+    } catch (err) {}
+    setActiveModal(null);
+    setItemData(null);
   };
 
   const handleSaveScan1 = async (e) => {
@@ -357,6 +361,9 @@ export default function RfidModalManager() {
       });
 
       if (res.ok) {
+        try {
+          await updateDoc(doc(db, 'system', 'active_scan'), { claimed: true, needs_naming: false });
+        } catch (e) {}
         setActiveModal(null);
         setItemData(null);
         setSearchQuery('');
