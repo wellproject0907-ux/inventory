@@ -88,7 +88,7 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
           </div>
           <input
             type="checkbox"
-            defaultChecked={typeof window !== 'undefined' ? localStorage.getItem('active_terminal') !== 'false' : true}
+            defaultChecked={typeof window !== 'undefined' ? localStorage.getItem('active_terminal') === 'true' : false}
             onChange={(e) => {
               localStorage.setItem('active_terminal', e.target.checked ? 'true' : 'false');
             }}

@@ -78,7 +78,7 @@ export default function RfidModalManager() {
     // Robust polling via Next.js API route (/api/barang) to bypass network/firewall blocks on Firestore WebSockets
     const pollInterval = setInterval(async () => {
       try {
-        const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') !== 'false';
+        const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
         if (!isActiveTerminal) return;
 
         const res = await fetch('/api/barang');
