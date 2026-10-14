@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Boxes,
   ClipboardCheck,
   Database,
   Settings,
@@ -20,7 +19,6 @@ export default function WhiteSubpanel({ isCollapsed, onToggle }) {
 
   const menus = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { label: 'Stock & Items', href: '/inventory', icon: Boxes },
     { label: 'Inventory', href: '/stock-opname', icon: ClipboardCheck },
     { label: 'Inbound', href: '/inbound', icon: ArrowDownLeft },
     { label: 'Outbound', href: '/outbound', icon: ArrowUpRight },
