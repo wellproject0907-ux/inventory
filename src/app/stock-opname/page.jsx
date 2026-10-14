@@ -452,7 +452,10 @@ export default function StockOpnamePage() {
                                       }`}
                                     >
                                       <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
+                                        <p className="font-bold text-stone-900 text-xs flex items-center gap-2">
+                                          <span>{item.nama_barang || 'Unnamed Material'}</span>
+                                        </p>
+                                        <div className="flex items-center gap-2 flex-wrap">
                                           <code className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">UID: {item.nfc_uid}</code>
                                           {isScannedInAudit ? (
                                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white flex items-center gap-1">
