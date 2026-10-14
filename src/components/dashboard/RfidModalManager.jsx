@@ -75,84 +75,48 @@ export default function RfidModalManager() {
       }
     });
 
-    // Listen to active scan real-time event for instant popups (0.something seconds response)
-    const unsubActiveScan = onSnapshot(doc(db, 'system', 'active_scan'), async (docSnap) => {
+    // Listen directly to collection 'barang' in real-time via Firestore WebSocket (Instant 0.something seconds popup)
+    const unsubBarang = onSnapshot(collection(db, 'barang'), (snapshot) => {
       const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
       if (!isActiveTerminal) return;
 
-      if (docSnap.exists()) {
-        const scanData = docSnap.data();
-        if (scanData && scanData.uid) {
-          try {
-            const res = await fetch('/api/barang');
-            if (res.ok) {
-              const docs = await res.json();
-              const inDoc = docs.find(d => d.needs_naming === true);
-              if (inDoc && activeModal !== 'scan1') {
-                setItemData(inDoc);
-                setActiveModal('scan1');
-                return;
-              }
-              const regDoc = docs.find(d => d.needs_already_registered_popup === true);
-              if (regDoc && activeModal !== 'registered') {
-                setItemData(regDoc);
-                setActiveModal('registered');
-                fetchHistory(regDoc.nfc_uid);
-                return;
-              }
-              const outDoc = docs.find(d => d.needs_spk === true && !d.needs_naming);
-              if (outDoc && activeModal !== 'scan2') {
-                setItemData(outDoc);
-                setActiveModal('scan2');
-                return;
-              }
-            }
-          } catch (e) {}
-        }
-      }
-    });
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // High-speed polling (every 400ms) as fallback for instant popup rendering
-    const pollInterval = setInterval(async () => {
-      try {
-        const isActiveTerminal = typeof window === 'undefined' || localStorage.getItem('active_terminal') === 'true';
-        if (!isActiveTerminal) return;
-
-        const res = await fetch('/api/barang');
-        if (!res.ok) return;
-        const docs = await res.json();
-
-        // PRIORITAS 1: Scan 1 - IN
-        const inDoc = docs.find(d => d.needs_naming === true);
-        if (inDoc && activeModal !== 'scan1') {
+      // PRIORITAS 1: Scan 1 - IN (needs_naming)
+      const inDoc = docs.find(d => d.needs_naming === true);
+      if (inDoc) {
+        if (activeModal !== 'scan1') {
           setItemData(inDoc);
           setActiveModal('scan1');
-          return;
         }
+        return;
+      }
 
-        // PRIORITAS 2: Already Registered
-        const regDoc = docs.find(d => d.needs_already_registered_popup === true);
-        if (regDoc && activeModal !== 'registered') {
+      // PRIORITAS 2: Already Registered
+      const regDoc = docs.find(d => d.needs_already_registered_popup === true);
+      if (regDoc) {
+        if (activeModal !== 'registered') {
           setItemData(regDoc);
           setActiveModal('registered');
           fetchHistory(regDoc.nfc_uid);
-          return;
         }
+        return;
+      }
 
-        // PRIORITAS 3: Scan 2 - OUT
-        const outDoc = docs.find(d => d.needs_spk === true && !d.needs_naming);
-        if (outDoc && activeModal !== 'scan2') {
+      // PRIORITAS 3: Scan 2 - OUT (needs_spk)
+      const outDoc = docs.find(d => d.needs_spk === true && !d.needs_naming);
+      if (outDoc) {
+        if (activeModal !== 'scan2') {
           setItemData(outDoc);
           setActiveModal('scan2');
-          return;
         }
-      } catch (e) {}
-    }, 400);
+        return;
+      }
+    });
 
     return () => {
       unsubSettings();
-      unsubActiveScan();
-      clearInterval(pollInterval);
+      unsubBarang();
     };
   }, [pendingAuthUid, activeModal]);
 
